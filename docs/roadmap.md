@@ -27,13 +27,13 @@
 | 06 | `i2c` | i2c 모듈, `i2c scan/read/write` 로 장치 확인 | i2c21 (P1.02/03), Qwiic J5, PMIC | i2c | TWIM PM runtime | ✅ |
 | 07 | `shtc3` | Qwiic SHTC3 온습도 센서 드라이버 + `shtc3` CLI | I2C 0x70 | (신규) | 측정 시에만 센서 wakeup | ✅ |
 | 08 | `button` | 스위치 입력, 디바운스, 클릭/길게 누름 이벤트, `button` CLI | SW1~4 | button (stm32h7-lvgl 최신판 API 일부) | GPIO SENSE 인터럽트 + 1회 타이머, 주기 스캔 없음 | ✅ |
-| 09 | `log` | 부팅 로그 버퍼, 로그 채널 선택 | | log | 로그 끔 상태 전류 | |
+| 09 | `log` | 부팅 로그 버퍼, 로그 채널, `log` CLI | VCOM1 | log (nu54dk, API NU87) | `logDisable()` 로 UART 송신 끄기 | ✅ |
 | 10 | `module` | **ap 모듈 구조**: `MODULE_DEF` 로 모듈 등록, 모듈별 스레드, cli_mgr(cli 스레드 + 채널 전환, 입력 대기 sleep), 모듈 초기화 순서 (§4) | | ap/modules (nu54dk, NU87) | 모듈 스레드는 이벤트로만 깨어남 | |
 | 11 | `power` | 소비전류 기준선: System ON idle / System OFF + 버튼 깨우기, DC/DC 확인, UART RX 자동 끄기 | SW, J1 | reset | **기준 전류 표 작성** (이후 단계와 비교) | |
 | 12 | `adc` | 배터리 전압(VBAT_MON), 칩 온도 | P1.12(AIN5), TEMP | adc | 측정할 때만 SAADC 켜기, 분압 저항 누설(≈2.5 µA@3.7 V) | |
 | 13 | `pmic` | BQ25186 충전기: 상태/인터럽트/충전 제어 | I2C 0x6A, P1.11 INT, P2.08 PG, P2.10 CE | (신규, i2c 사용) | INT 인터럽트로 상태 변화 감지 | |
 | 14 | `nvs` | 설정 저장 (storage 파티션), eeprom 에뮬레이션 | RRAM `storage_partition` | nvs, eeprom, flash | 쓰기 횟수·타이밍 | |
-| 15 | `rtc` | **날짜·시계**: 연월일 시분초, epoch(UTC), 시간대, `rtc` CLI(`rtc info / set date / set time / tz`), 주기 깨우기, 워치독 (§5) | GRTC(LFXO), WDT31, 보존 RAM | rtc (NU87 API), reset | GRTC 는 System OFF 에서도 동작, 1초 틱 없이 조회 시 계산 | |
+| 15 | `rtc` | **날짜·시계**: 연월일 시분초, epoch(UTC), 시간대, `rtc` CLI(`rtc info / set date / set time / tz`), 주기 깨우기, 워치독, **log 타임스탬프** (§5) | GRTC(LFXO), WDT31, 보존 RAM | rtc (NU87 API), reset | GRTC 는 System OFF 에서도 동작, 1초 틱 없이 조회 시 계산 | |
 | 16 | `ble_nus` | **BLE NUS 를 uart 가상 채널로 추가 → baram-term 과 통신** | RADIO | uart(`uartSetDriver`), cli | 광고/연결 간격, TX 전력 | |
 | 17 | `ble_power` | BLE 저전력 튜닝: 광고 주기, 연결 파라미터, 슬레이브 레이턴시 | RADIO | | 광고/연결 상태별 평균 전류 표 | |
 | 18 | `dfu` | MCUboot + SMP 로 펌웨어 업데이트 (UART / BLE) | slot0/slot1 파티션 | loader, ymodem | 부트로더 크기와 부팅 시간 | |
@@ -150,6 +150,7 @@ epoch = base_epoch + (GRTC 카운터 - base_count) / 1 000 000
 | 날짜 계산 | epoch ↔ 연월일/요일 변환은 NU87 `rtcCivilToEpoch` 방식 (윤년 포함) |
 | 저전력 | 1초 틱 인터럽트를 쓰지 않는다. 시각은 조회할 때 계산하고, 알람/주기 깨우기만 GRTC compare 로 한다 |
 | 정확도 | LFXO(외부 크리스털 Y1) 오차 ±20 ppm 수준 → 하루 약 ±2 초. 장기간이면 주기 동기화 |
+| log 타임스탬프 | log.c 의 `logBufHeader()` 에서 줄 머리에 날짜·시각을 넣는다 (로그가 생긴 순간의 시각). 시각이 설정되지 않았으면 부팅 후 경과 시간 |
 
 ## 6. 단계 공통 체크리스트
 
