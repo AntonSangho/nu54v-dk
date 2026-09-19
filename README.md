@@ -49,6 +49,7 @@ NUCODE NU54-DK (nRF54L15) 보드 브링업 펌웨어.
 | 07 | `shtc3` | Qwiic SHTC3 온습도 센서 |
 | 08 | `button` | 버튼 (인터럽트 방식), 클릭 / 길게 누름 |
 | 09 | `log` | 로그 버퍼, `log boot/list` |
+| 10 | `module` | ap 모듈 구조, 모듈별 스레드 (cli_mgr) |
 
 앞으로의 계획: [docs/roadmap.md](docs/roadmap.md)
 
