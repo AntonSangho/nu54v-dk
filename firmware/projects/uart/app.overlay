@@ -1,0 +1,8 @@
+/*
+ * VCOM0 활성화 : uart30 (P0.00 TX, P0.01 RX, P0.02 RTS, P0.03 CTS)
+ * VCOM1(uart20) 은 보드 기본값으로 켜져 있다 (cli / 콘솔).
+ */
+
+&uart30 {
+	status = "okay";
+};

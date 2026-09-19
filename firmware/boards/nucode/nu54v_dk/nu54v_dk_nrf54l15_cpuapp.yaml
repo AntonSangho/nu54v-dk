@@ -1,0 +1,12 @@
+identifier: nu54v_dk/nrf54l15/cpuapp
+name: NU54-DK-nRF54L15-Application
+vendor: nucode
+type: mcu
+arch: arm
+toolchain:
+  - zephyr
+sysbuild: true
+ram: 188
+flash: 1428
+supported:
+  - gpio

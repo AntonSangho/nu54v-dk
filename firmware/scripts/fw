@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# macOS / Linux 용 진입점 : NCS 툴체인의 파이썬으로 fw.py 를 실행한다.
+set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ -z "$NCS_ROOT" ]; then
+  case "$(uname -s)" in
+    Darwin) NCS_ROOT=/opt/nordic/ncs ;;
+    *)      NCS_ROOT="$HOME/ncs" ;;
+  esac
+fi
+export NCS_ROOT
+
+PY=""
+for c in "$NCS_ROOT"/toolchains/*/bin/python3 "$NCS_ROOT"/toolchains/*/usr/local/bin/python3; do
+  if [ -x "$c" ]; then PY="$c"; break; fi
+done
+[ -z "$PY" ] && PY="$(command -v python3 || true)"
+if [ -z "$PY" ]; then
+  echo "[fw] ERROR: python3 를 찾을 수 없음 (NCS_ROOT=$NCS_ROOT)" >&2
+  exit 1
+fi
+
+exec "$PY" "$SCRIPT_DIR/fw.py" "$@"

@@ -1,0 +1,8 @@
+/*
+ * Qwiic(J5) I2C 활성화 : i2c21 (P1.02 SDA, P1.03 SCL)
+ * SHTC3 주소(0x70)는 hw_def.h 에서 관리한다 (자체 드라이버 사용).
+ */
+
+&i2c21 {
+	status = "okay";
+};

@@ -1,0 +1,16 @@
+# Build output
+build/
+build_*/
+
+# fw 스크립트가 만드는 로컬 툴 링크 (PC마다 다름)
+firmware/.tools/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+__pycache__/
+
+# 전역 gitignore 가 제외하더라도 프로젝트별 VS Code 설정은 공유한다
+!firmware/projects/*/.vscode/settings.json
+!firmware/projects/*/.vscode/c_cpp_properties.json

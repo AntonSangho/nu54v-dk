@@ -1,0 +1,65 @@
+{
+  // firmware/scripts/fw(.cmd) 를 호출한다. 터미널에서 직접 실행해도 동일하다.
+  //   mac/linux : ../../scripts/fw build
+  //   windows   : ..\..\scripts\fw.cmd build
+  "version": "2.0.0",
+  "options": {
+    "cwd": "${workspaceFolder}"
+  },
+  "windows": {
+    "command": "${workspaceFolder}\\..\\..\\scripts\\fw.cmd"
+  },
+  "command": "${workspaceFolder}/../../scripts/fw",
+  "type": "shell",
+  "presentation": {
+    "reveal": "always",
+    "panel": "shared",
+    "clear": true
+  },
+  "tasks": [
+    {
+      "label": "Build",
+      "args": ["build"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": { "base": "$gcc", "fileLocation": "absolute" }
+    },
+    {
+      "label": "Rebuild (pristine)",
+      "args": ["build", "-p"],
+      "group": "build",
+      "problemMatcher": { "base": "$gcc", "fileLocation": "absolute" }
+    },
+    {
+      "label": "Flash",
+      "args": ["flash"],
+      "dependsOn": "Build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Erase chip",
+      "args": ["erase"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Reset",
+      "args": ["reset"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Clean",
+      "args": ["clean"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Menuconfig",
+      "args": ["menuconfig"],
+      "presentation": { "focus": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Env info",
+      "args": ["env"],
+      "problemMatcher": []
+    }
+  ]
+}

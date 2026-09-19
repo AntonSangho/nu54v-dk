@@ -1,0 +1,125 @@
+# 브링업 로드맵
+
+보드 기능을 하나씩 살리면서 `firmware/projects/<이름>` 예제와 `docs/NN_<이름>.md` 문서를 함께 만든다.
+뒤 단계는 앞 단계 모듈을 복사해서 쓴다 (예: cli 는 uart 위에, ble_nus 는 uart 채널로).
+**05 `uart` 이후 예제는 모두 cli 를 포함한다** → 새 모듈은 자기 CLI 명령(`i2c`, `shtc3`, `button` …)을 넣고, ap 에 시험 코드를 넣지 않고 cli 에서 먼저 시험한다.
+
+- 문서 번호 = 구현 순서. 순서가 바뀌면 번호도 바꾼다.
+- **참조 모듈**: 레퍼런스의 같은 이름 모듈. 구조는 유지하고 이 보드와 저전력에 맞게 고친다.
+  - [nu54dk](https://github.com/chcbaram/nu54dk) `firmware/nu54l15-fw` : 이전 nRF54L 보드 (Zephyr)
+  - [NU87-TinyDK](https://github.com/chcbaram/NU87-TinyDK) `firmware/nu87-fw` : 더 최신 구조 (uart 가상 채널, cli, ap 모듈). 두 곳에 같은 모듈이 있으면 NU87 을 먼저 본다.
+- 모든 단계에서 저전력 항목을 확인한다. 전류는 J1(VDD_MOD)에서 PPK2 로 잰다.
+
+## 1. 단계별 계획
+
+| 문서 | 프로젝트 | 내용 | 보드 자원 | 참조 모듈 | 저전력 확인 | 상태 |
+|---|---|---|---|---|---|---|
+| 04 | `led` | LED 점멸, 빌드/다운로드/디버그 경로 확인 | LED1~4 | led | 폴링 없는 루프 | ✅ |
+| 05 | `uart` | **공통 기반**: uart(VCOM1/VCOM0, async DMA, 가상 채널 구조) + qbuffer + cli. baram-term 시리얼로 명령 | uart20, uart30 | uart, cli (NU87), qbuffer | RX 켜짐/꺼짐 전류, 입력 대기 sleep | ✅ |
+| 06 | `i2c` | i2c 모듈, `i2c scan/read/write` 로 장치 확인 | i2c21 (P1.02/03), Qwiic J5, PMIC | i2c | TWIM PM runtime | ✅ |
+| 07 | `shtc3` | Qwiic SHTC3 온습도 센서 드라이버 + `shtc3` CLI | I2C 0x70 | (신규) | 측정 시에만 센서 wakeup | ✅ |
+| 08 | `button` | 스위치 입력, 디바운스, 눌림/길게 눌림, `button` CLI | SW1~4 | button | GPIO 인터럽트(GPIOTE)로 깨우기, 폴링 없음 | |
+| 09 | `log` | 부팅 로그 버퍼, 로그 채널 선택 | | log | 로그 끔 상태 전류 | |
+| 10 | `module` | **ap 모듈 구조**: `MODULE_DEF` 로 모듈 등록, 모듈별 스레드(cli 스레드 등), 모듈 초기화 순서 (§4) | | ap/modules (nu54dk, NU87) | 모듈 스레드는 이벤트로만 깨어남 | |
+| 11 | `power` | 소비전류 기준선: System ON idle / System OFF + 버튼 깨우기, DC/DC 확인, UART RX 자동 끄기 | SW, J1 | reset | **기준 전류 표 작성** (이후 단계와 비교) | |
+| 12 | `adc` | 배터리 전압(VBAT_MON), 칩 온도 | P1.12(AIN5), TEMP | adc | 측정할 때만 SAADC 켜기, 분압 저항 누설(≈2.5 µA@3.7 V) | |
+| 13 | `pmic` | BQ25186 충전기: 상태/인터럽트/충전 제어 | I2C 0x6A, P1.11 INT, P2.08 PG, P2.10 CE | (신규, i2c 사용) | INT 인터럽트로 상태 변화 감지 | |
+| 14 | `nvs` | 설정 저장 (storage 파티션), eeprom 에뮬레이션 | RRAM `storage_partition` | nvs, eeprom, flash | 쓰기 횟수·타이밍 | |
+| 15 | `rtc` | 시간 유지, 주기 깨우기, 워치독 | GRTC, WDT31 | rtc, reset | LFXO 로 GRTC 동작, 깨우는 주기 | |
+| 16 | `epaper` | **WeAct 4.2" e-paper (SSD1683, 400×300)** : SPI, 화면 버퍼, 글자/도형, 전체/부분 갱신 | SPI00 + GPIO (P2 헤더, §3) | spi, lcd (+ lcd/ssd1306 구조) | 갱신 후 deep sleep, 부분 갱신, 필요 시 VCC 차단 | |
+| 17 | `ble_nus` | **BLE NUS 를 uart 가상 채널로 추가 → baram-term 과 통신** | RADIO | uart(`uartSetDriver`), cli | 광고/연결 간격, TX 전력 | |
+| 18 | `ble_power` | BLE 저전력 튜닝: 광고 주기, 연결 파라미터, 슬레이브 레이턴시 | RADIO | | 광고/연결 상태별 평균 전류 표 | |
+| 19 | `dfu` | MCUboot + SMP 로 펌웨어 업데이트 (UART / BLE) | slot0/slot1 파티션 | loader, ymodem | 부트로더 크기와 부팅 시간 | |
+| 20 | `app` | 위 모듈을 합친 기본 펌웨어 (cli + ble_nus + 센서 + e-paper + 전원 관리) | 전체 | ap/system | 동작 모드별 전류 | |
+
+선택 예제 (필요할 때):
+
+| 프로젝트 | 내용 |
+|---|---|
+| `pwm` | LED2/LED4 밝기 조절. PWM20 은 P1 포트에서만 동작 → LED2(P1.10), LED4(P1.14)만 가능 |
+| `swo` | SWO 트레이스 (P2.07, LED3 와 공유 — SB13) |
+| `flpr` | RISC-V 코프로세서(FLPR)로 소프트 주변장치 |
+
+## 2. BLE NUS ↔ baram-term (17단계) 설계 방향
+
+목표: 기존 cli 를 선 없이 BLE 로 쓴다. baram-term 이 BLE NUS 로 보드에 연결해 시리얼처럼 명령을 주고받는다.
+
+```
+baram-term ──BLE (NUS RX/TX 특성)──► nus 채널 ─┐
+                                               ├─ uart.c (_DEF_UARTx 채널) ─► cli / log
+VCOM1 (uart20) ─────────────────────► UART 채널 ┘
+```
+
+- **uart 가상 채널로 넣는다**: 05 의 uart 모듈(NU87 구조)은 채널마다 `uart_driver_t`(open/close/available/flush/read/write)를 등록할 수 있다.
+  NUS 를 `uart_driver_t` 로 구현해 `uartSetDriver(HW_UART_CH_BLE, &nus_driver)` 로 붙이면 cli·log 는 채널 번호만 바꿔서 BLE 로 동작한다
+  (NU87 의 `HW_UART_CH_BLE` / `cli_ble` 와 같은 방식).
+- **수신**: NUS RX 콜백 → qbuffer 에 넣기 → `uartAvailable/uartRead` 로 꺼내기 (VCOM 수신과 같은 흐름)
+- **송신**: `uartWrite` → 연결되어 있고 알림(notify)이 켜져 있으면 MTU 크기로 나눠 전송. 연결이 없으면 버리거나 버퍼에 둔다.
+- **SDK**: NCS `bt_nus` 서비스(`CONFIG_BT_NUS`)를 우선 검토한다. Zephyr 의 `CONFIG_BT_ZEPHYR_NUS` 도 비교한다.
+- **MTU / 데이터 길이**: 처리량을 위해 MTU 247, Data Length Extension, 2M PHY 사용 여부 결정
+- **저전력**:
+  - 광고: 연결 전 빠른 광고 → 일정 시간 뒤 느린 광고(예: 1 s) 또는 멈춤, 버튼으로 다시 시작
+  - 연결: 대기 중에는 긴 연결 간격 + 슬레이브 레이턴시, 데이터가 오갈 때만 짧은 간격 요청
+  - TX 전력은 필요한 만큼만
+- **확인 필요**: baram-term 의 NUS 접속 방식 (장치 이름/주소로 찾기, 재연결, 줄바꿈 처리)
+
+## 3. e-paper (16단계) 계획
+
+자료: https://github.com/WeActStudio/WeActStudio.EpaperModule (`Doc/4.2 Inch Black&Write`, `Doc/4.2 Inch Black&Write&Red`, `Doc/SSD1683_Datasheet.PDF`)
+
+| 항목 | 내용 |
+|---|---|
+| 패널 | 4.2", 400×300, SSD1683. 흑백(E042A87) / 흑백적(E042A88) 중 사용 모델 확인 필요 |
+| 커넥터 | 8핀: VCC, GND, SDA(MOSI), SCL(SCK), CS, DC, RES, BUSY (모듈에 3.3 V LDO ME6231) |
+| 인터페이스 | 4선 SPI (쓰기 전용, MISO 없음) + DC/RES 출력 + BUSY 입력 |
+| 버퍼 | 흑백 400×300 / 8 = 15,000 바이트 (흑백적은 ×2) → RAM 188 KB 중 여유 있음 |
+| 드라이버 | Zephyr(3.3.0) 에 SSD1683 없음 → 레퍼런스 `lcd.c` + `lcd/ssd1306.c` 구조로 `lcd/ssd1683.c` 작성. 예제 코드 `4D2_BW_400X300_1683_UT From MCU.c` 참고 |
+
+핀 배치 (제안 — 실제 배선에 맞춰 확정). 헤더 P2 로만 나와 있는 P2.00~P2.06 을 쓴다.
+
+| 신호 | 핀 | 비고 |
+|---|---|---|
+| SCL (SCK) | P2.01 | SPI00 SCK (nRF54L15 DK 와 같은 배치) |
+| SDA (MOSI) | P2.02 | SPI00 MOSI |
+| CS | P2.05 | |
+| DC | P2.03 | |
+| RES | P2.00 | |
+| BUSY | P2.04 | 입력 (갱신 끝나면 인터럽트로 깨우기) |
+| (VCC 스위치) | P2.06 | 선택: 부하 스위치로 모듈 전원 차단 |
+
+저전력:
+- 화면 갱신이 끝나면(BUSY) 패널을 deep sleep (SSD1683 `0x10` 명령) → e-paper 는 전원 없이 화면 유지
+- BUSY 는 폴링 대신 GPIO 인터럽트 + 세마포어로 기다린다 (전체 갱신 수 초 동안 CPU sleep)
+- 자주 바뀌는 부분(시간, 온습도)은 부분 갱신, 전체 갱신은 잔상 제거가 필요할 때만
+- 오래 쓰지 않을 때는 모듈 VCC 를 끊는다 (모듈 LDO 대기 전류까지 제거, 하드웨어 추가 필요)
+- SPI 는 PM runtime 으로 전송할 때만 켠다
+
+## 4. ap 모듈 구조 (10단계) 계획
+
+지금은 `apMain()` 에서 `cliMain()` 을 직접 돈다. 기능이 늘면 레퍼런스의 ap 모듈 구조로 옮긴다.
+
+```
+ap/
+├── ap.c                 apInit() → moduleInit() → 각 모듈 init / 스레드 시작
+└── modules/
+    ├── module.c/h       MODULE_DEF(name) { .name, .priority, .init, (.update) }  → ".module" 링커 섹션에 모인다
+    ├── common/cli/      cli 모듈 : 자기 스레드에서 cliMain()
+    └── system/          system 모듈 : 준비 완료 신호(systemIsReady) 등
+```
+
+| 항목 | nu54dk | NU87-TinyDK | 이 보드에서 |
+|---|---|---|---|
+| 모듈 등록 | `MODULE_DEF` + `.module` 섹션 (링커 스크립트) | 같음 + `update` 콜백, `MODULE_PRI_MAX` | 같은 방식. Zephyr 에서는 `zephyr_linker_sources` 또는 `ITERABLE_SECTION` 으로 섹션 정의 |
+| 실행 | 모듈이 스레드를 직접 만듦 (`cliThread`: `cliMain(); delay(5);`) | bare-metal: `moduleUpdate()` 순회, `cliLoopIdle()` 훅 | **모듈별 스레드**. 스레드는 폴링하지 않고 이벤트(`uartWaitRx`, 세마포어, 메시지 큐)로만 깨어난다 |
+| 우선순위 | `_HW_DEF_RTOS_THREAD_PRI_xxx`, `_MEM_xxx` (hw_def.h) | | 같은 정의 사용 |
+
+저전력: 모든 모듈 스레드가 이벤트를 기다리는 동안 idle 스레드가 WFI 로 들어간다. 주기 작업은 `k_timer`/`k_work_delayable` 로.
+
+## 5. 단계 공통 체크리스트
+
+- [ ] 레퍼런스 모듈 확인 (NU87 → nu54dk 순) → 구조 유지하며 이식
+- [ ] 모듈에 CLI 명령 추가 (`#if CLI_USE(HW_xxx)`), cli 로 먼저 시험
+- [ ] 보드 DTS 에 필요한 노드/alias 추가 (핀 하드코딩 금지)
+- [ ] 빌드 / 다운로드 / 디버그 / 콘솔 확인
+- [ ] 저전력 항목 확인, 가능하면 전류 측정값 기록
+- [ ] `docs/NN_<이름>.md` 작성, [00_handoff.md](00_handoff.md) 진행 상황·다음 할 일 갱신

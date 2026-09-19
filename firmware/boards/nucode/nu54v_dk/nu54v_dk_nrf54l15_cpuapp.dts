@@ -1,0 +1,188 @@
+/*
+ * NU54-DK (NUCODE) - nRF54L15 Application core
+ * 회로도: hardware/NU54_DK_2026-07-13T15_16_09_UTC_SCH.pdf (Variant NU-54DK-C)
+ */
+
+/dts-v1/;
+
+#include <nordic/nrf54l15_cpuapp.dtsi>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include "nu54v_dk-pinctrl.dtsi"
+
+/ {
+	compatible = "nucode,nu54v_dk-nrf54l15-cpuapp";
+	model = "NUCODE NU54-DK nRF54L15 Application MCU";
+
+	chosen {
+		zephyr,console = &uart20;
+		zephyr,shell-uart = &uart20;
+		zephyr,uart-mcumgr = &uart20;
+		zephyr,sram = &cpuapp_sram;
+		zephyr,flash = &cpuapp_rram;
+		zephyr,flash-controller = &rram_controller;
+		zephyr,code-partition = &slot0_partition;
+	};
+
+	/* LED1~4 : LEDx → NC7WZ17 버퍼 → NPN(EMH60) → LED, High = ON */
+	leds {
+		compatible = "gpio-leds";
+
+		led0: led_0 {
+			gpios = <&gpio2 9 GPIO_ACTIVE_HIGH>;
+			label = "LED1";
+		};
+
+		led1: led_1 {
+			gpios = <&gpio1 10 GPIO_ACTIVE_HIGH>;
+			label = "LED2";
+		};
+
+		led2: led_2 {
+			gpios = <&gpio2 7 GPIO_ACTIVE_HIGH>;
+			label = "LED3";
+		};
+
+		led3: led_3 {
+			gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+			label = "LED4";
+		};
+	};
+
+	/* SW1~4 : 스위치 → GND, 외부 풀업 없음 → 내부 풀업 사용, Low = 눌림 */
+	buttons {
+		compatible = "gpio-keys";
+
+		button0: button_0 {
+			gpios = <&gpio1 13 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "SW1";
+			zephyr,code = <INPUT_KEY_0>;
+		};
+
+		button1: button_1 {
+			gpios = <&gpio1 9 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "SW2";
+			zephyr,code = <INPUT_KEY_1>;
+		};
+
+		button2: button_2 {
+			gpios = <&gpio1 8 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "SW3";
+			zephyr,code = <INPUT_KEY_2>;
+		};
+
+		button3: button_3 {
+			gpios = <&gpio0 4 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			label = "SW4";
+			zephyr,code = <INPUT_KEY_3>;
+		};
+	};
+
+	aliases {
+		led0 = &led0;
+		led1 = &led1;
+		led2 = &led2;
+		led3 = &led3;
+		sw0 = &button0;
+		sw1 = &button1;
+		sw2 = &button2;
+		sw3 = &button3;
+		mcuboot-led0 = &led0;
+		mcuboot-button0 = &button0;
+		watchdog0 = &wdt31;
+	};
+};
+
+&cpuapp_sram {
+	status = "okay";
+};
+
+/* 32.768kHz 크리스탈 Y1 : P1.00/P1.01 (SB18/SB19), 외부 부하 커패시터 C1/C2 13pF */
+&lfxo {
+	load-capacitors = "external";
+};
+
+/* 32MHz HFXO 는 모듈(NCRB54N01VC) 내부 - nRF54L15 DK 기본값 사용 */
+&hfxo {
+	load-capacitors = "internal";
+	load-capacitance-femtofarad = <15000>;
+};
+
+/*
+ * 전원: 모듈 내부 DC/DC 인덕터 실장 여부 미확인 → 기본(LDO) 모드 유지.
+ * 확인 후 DC/DC 사용 시:
+ *   &regulators { status = "okay"; };
+ *   &vregmain { status = "okay"; regulator-initial-mode = <NRF5X_REG_MODE_DCDC>; };
+ */
+
+&grtc {
+	owned-channels = <0 1 2 3 4 5 6 7 8 9 10 11>;
+	/* Channels 7-11 reserved for Zero Latency IRQs, 3-4 for FLPR */
+	child-owned-channels = <3 4 7 8 9 10 11>;
+	status = "okay";
+};
+
+&clock {
+	status = "okay";
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&gpio2 {
+	status = "okay";
+};
+
+&gpiote20 {
+	status = "okay";
+};
+
+&gpiote30 {
+	status = "okay";
+};
+
+&radio {
+	status = "okay";
+};
+
+&temp {
+	status = "okay";
+};
+
+/* VCOM1 - 콘솔 */
+&uart20 {
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart20_default>;
+	pinctrl-1 = <&uart20_sleep>;
+	pinctrl-names = "default", "sleep";
+	/* CONFIG_PM_DEVICE_RUNTIME=y 일 때 사용하지 않는 동안 자동 suspend (저전력) */
+	zephyr,pm-device-runtime-auto;
+};
+
+/* VCOM0 - 필요 시 오버레이에서 status = "okay" */
+&uart30 {
+	current-speed = <115200>;
+	pinctrl-0 = <&uart30_default>;
+	pinctrl-1 = <&uart30_sleep>;
+	pinctrl-names = "default", "sleep";
+	/* CONFIG_PM_DEVICE_RUNTIME=y 일 때 사용하지 않는 동안 자동 suspend (저전력) */
+	zephyr,pm-device-runtime-auto;
+};
+
+/* Qwiic(J5) + PMIC(BQ25186, 0x6A) - I2C 예제에서 status = "okay" */
+&i2c21 {
+	clock-frequency = <I2C_BITRATE_FAST>;
+	pinctrl-0 = <&i2c21_default>;
+	pinctrl-1 = <&i2c21_sleep>;
+	pinctrl-names = "default", "sleep";
+	/* CONFIG_PM_DEVICE_RUNTIME=y 일 때 사용하지 않는 동안 자동 suspend (저전력) */
+	zephyr,pm-device-runtime-auto;
+};
+
+/* 메모리맵: docs/01_memory_map.md */
+#include <vendor/nordic/nrf54l15_cpuapp_partition.dtsi>

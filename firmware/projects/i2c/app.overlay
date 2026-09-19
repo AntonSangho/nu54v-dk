@@ -1,0 +1,8 @@
+/*
+ * Qwiic(J5) I2C 활성화 : i2c21 (P1.02 SDA, P1.03 SCL)
+ * 장치 확인 : cli 에서 i2c scan 1
+ */
+
+&i2c21 {
+	status = "okay";
+};
