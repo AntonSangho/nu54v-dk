@@ -33,15 +33,18 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-20 | **NCS v3.4.1 로 전환** (macOS 12 에서는 cmake 만 시스템 cmake 로 임시 우회, fw 스크립트 자동). 4개 예제 빌드, shtc3 보드 동작·GDB 디버깅 확인. uart 모듈에 `uartRxNotify` (가상 채널 드라이버용). 첫 커밋 `bae82d7` |
 | 2026-09-20 | `projects/uart`, `i2c`, `shtc3` 로 분리. uart 모듈을 NU87 구조(가상 채널) + Zephyr async(DMA) 로 새로 작성, cli 는 NU87 버전. 각 모듈 CLI 로 시험 (VCOM0/1, i2c scan, shtc3). NCS v3.4.1 설치 실패 원인 확인 (아래) |
 | 2026-09-20 | (이전) `projects/i2c_shtc3` : i2c 모듈 이식, SHTC3 드라이버, 보드 `board.c` 에서 NFC 패드 끄기 (P1.02/03 I2C). SHTC3 측정·PMIC(0x6A) 응답 확인. 로드맵에 e-paper(WeAct 4.2", SSD1683) 추가, cli 를 06 으로 앞당김 |
-| 2026-09-20 | git 저장소 생성 (`main`). 보드 패키지 `nu54v_dk`, 빌드 스크립트 `fw`, `projects/led` 작성. macOS 에서 빌드·다운로드·콘솔·GDB 디버깅 확인 (NCS v3.3.0) |
+| 2026-09-20 | git 저장소 생성 (`main`). 보드 패키지 `nu54v_dk`, 빌드 스크립트 `fw`, `projects/led` 작성. macOS 에서 빌드·다운로드·콘솔·GDB 디버깅 확인 (당시 NCS v3.3.0) |
 
 ## 다음 할 일
 
-- [ ] **NCS v3.4.1 전환 보류**: v3.4.1 툴체인의 cmake 가 macOS 14+ 전용 (`minos 14.0`, 이 PC 는 macOS 12.7.6) → SDK Manager 의 `west zephyr-export` 단계에서 실패.
-  SDK 파일은 받아져 있고, cmake 만 v3.3.0 툴체인 것(4.4.3)으로 바꾸면 빌드된다 (시험 확인). 결정 필요: macOS 업그레이드 / 스크립트 우회 / v3.3.0 유지.
-  v3.4.1 에서는 cpuapp 메모리가 RRAM 1524 KB / SRAM 256 KB 로 바뀐다 (01_memory_map 갱신 필요), `NRF_PLATFORM_LUMOS` deprecated 경고.
+- [ ] **cmake 임시 우회 제거**: NCS v3.4.1 macOS 툴체인의 cmake 는 macOS 14+ 전용 (`minos 14.0`). 이 PC(macOS 12.7.6)에서는
+  SDK Manager 의 `west zephyr-export` 가 실패로 끝났지만 SDK 파일은 정상. `fw.py` 의 `fix_cmake()` 가 시스템 cmake(Homebrew 4.4.3)를 대신 쓴다.
+  macOS 14+ 로 올리면 우회가 저절로 꺼진다 (코드는 남겨도 무해). 다른 도구(gcc 14.3, gdb 16.2, ninja, pyocd)는 macOS 12 에서도 동작 확인.
+- [ ] `NRF_PLATFORM_LUMOS` deprecated 경고: SDK(zephyr/soc/nordic/Kconfig)가 nRF54L 에 기본 y 로 켜는 호환 심볼. SDK 안에서 쓰는 곳 없음.
+  다음 릴리스에서 삭제 예정이라 보드에서 끄지 않고 둔다 (끄면 삭제된 버전에서 오히려 에러).
 - [ ] LED 육안 확인, VS Code F5 디버깅 확인
 - [ ] Windows / Linux 에서 빌드·다운로드·디버깅 확인
 - [ ] 다음 예제: [roadmap.md](roadmap.md) 순서 (08 button → 09 log → **10 module(ap 모듈·스레드)** → … → 16 epaper → 17 ble_nus)

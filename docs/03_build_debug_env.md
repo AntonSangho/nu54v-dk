@@ -37,6 +37,7 @@ nu54v-dk/
    - 기본 설치 경로: macOS `/opt/nordic/ncs`, Windows `C:\ncs`, Linux `~/ncs`
    - 다른 경로라면 환경변수 `NCS_ROOT` 지정
 2. `firmware/ncs_config.json` 의 `ncs_version` 과 같은 버전이 설치되어 있어야 한다.
+   - **macOS 13 이하**: NCS v3.4.1 툴체인의 cmake 가 실행되지 않는다 → `brew install cmake` (fw 가 자동으로 사용)
 3. VS Code 확장: **Cortex-Debug**(marus25.cortex-debug), **C/C++**(ms-vscode.cpptools). nRF Connect 확장팩은 선택.
 4. Linux: 일반 사용자로 CMSIS-DAP 에 접근하도록 udev 규칙 추가.
    `lsusb` 로 VID:PID 를 확인한 뒤 `/etc/udev/rules.d/50-nu54dk.rules` 에
@@ -109,3 +110,6 @@ launch.json 의 ELF 경로는 `build/${workspaceFolderBasename}/zephyr/zephyr.el
 
 - `Board ID 5415 is not recognized` / `NRF54L15 is not in a secure state` : pyOCD 정보성 경고, 동작에 영향 없음.
 - `Error during board uninit` : 가끔 `fw flash` 끝에 나오지만 쓰기(`Erased … programmed …`)는 완료된 상태.
+- `Deprecated symbol NRF_PLATFORM_LUMOS is enabled` : NCS v3.4.1 SDK 자체 경고 (nRF54L 에 기본 켜짐). 무시.
+- `[fw] 경고: 툴체인 cmake 실행 불가 → 임시로 … 사용` : macOS 13 이하 + NCS v3.4.1. 시스템 cmake(`brew install cmake`)나
+  다른 툴체인의 cmake 를 대신 쓴다. 빌드 결과는 같다.

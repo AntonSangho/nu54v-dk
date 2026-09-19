@@ -54,9 +54,9 @@ LED 핀은 코드에 직접 쓰지 않고 보드 DTS 의 `led0~led3` 노드에�
 - J1 점퍼 위치에서 VDD_MOD 전류 측정, DAP 레벨시프터는 SW1 로 분리
 - DC/DC 미사용(LDO) 상태임 ([02_board_package](02_board_package.md) TODO)
 
-## 4. 검증 결과 (2026-09-20, NCS v3.3.0, macOS)
+## 4. 검증 결과 (2026-09-20, macOS)
 
-- [x] 빌드: FLASH 41 KB / RAM 8 KB
+- [x] 빌드: FLASH 41 KB / RAM 8 KB (NCS v3.3.0), 42 KB / 7.4 KB (v3.4.1)
 - [x] 다운로드: `fw flash` (pyOCD, CMSIS-DAP "NU54DK_v2")
 - [x] 콘솔: VCOM 부팅 메시지 확인
 - [x] 디버그: pyOCD gdbserver + GDB, `ledToggle` 브레이크포인트/백트레이스 확인

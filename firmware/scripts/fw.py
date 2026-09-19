@@ -122,7 +122,7 @@ def tool_runs(path):
 
 
 def fix_cmake(root, tc_dir, env):
-    """[임시 우회] 툴체인의 cmake 가 이 PC 에서 실행되지 않으면 다른 툴체인의 cmake 를 쓴다.
+    """[임시 우회] 툴체인의 cmake 가 이 PC 에서 실행되지 않으면 시스템/다른 툴체인의 cmake 를 쓴다.
 
     NCS v3.4.1 macOS 툴체인의 cmake 는 macOS 14 이상 전용이라 macOS 12 에서는 바로 죽는다.
     cmake 하나만 firmware/.tools/cmake 링크로 PATH 앞에 넣는다 (다른 도구는 원래 툴체인 그대로).
@@ -134,6 +134,10 @@ def fix_cmake(root, tc_dir, env):
 
     exe = "cmake.exe" if IS_WINDOWS else "cmake"
     candidates = []
+    # 1) 시스템 PATH 의 cmake (예: Homebrew)  2) 설치된 다른 툴체인의 cmake
+    system_cmake = shutil.which(exe, path=os.environ.get("PATH", ""))
+    if system_cmake:
+        candidates.append(Path(system_cmake))
     for other in sorted((root / "toolchains").iterdir()):
         if other.resolve() == tc_dir.resolve() or not other.is_dir():
             continue
@@ -153,7 +157,7 @@ def fix_cmake(root, tc_dir, env):
             log(f"경고: 툴체인 cmake 실행 불가 → 임시로 {cand} 사용 (docs/00_handoff.md 참고)")
             return env
 
-    die(f"실행 가능한 cmake 가 없음 ({cmake})")
+    die(f"실행 가능한 cmake 가 없음 ({cmake}). cmake 3.20 이상을 설치하세요 (macOS: brew install cmake)")
 
 
 def resolve():

@@ -25,7 +25,8 @@ NUCODE NU54-DK (nRF54L15) 보드 브링업 펌웨어.
 | [baram-term](https://github.com/chcbaram/baram-term) | 시리얼 터미널 — VCOM1 로 cli 사용. Claude Code 플러그인으로 세션에서 같은 창에 명령 전송 (`baram-ctl`) |
 
 > **macOS 참고**: NCS v3.4.1 macOS 툴체인의 cmake 는 macOS 14 이상에서만 실행된다.
-> macOS 13 이하에서는 `fw` 스크립트가 설치된 다른 툴체인의 cmake 를 임시로 대신 쓴다 (경고 출력).
+> macOS 13 이하에서는 `fw` 스크립트가 시스템 cmake(예: `brew install cmake`) 또는 설치된 다른 툴체인의 cmake 를
+> 임시로 대신 쓴다 (경고 출력). 나머지 도구(gcc, gdb, ninja, pyocd)는 v3.4.1 툴체인 그대로 동작한다.
 > macOS 14 이상 / Windows / Linux 에서는 해당 없음.
 
 ## 폴더

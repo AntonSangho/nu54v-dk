@@ -20,7 +20,7 @@
 | 07 | `shtc3` | Qwiic SHTC3 온습도 센서 드라이버 + `shtc3` CLI | I2C 0x70 | (신규) | 측정 시에만 센서 wakeup | ✅ |
 | 08 | `button` | 스위치 입력, 디바운스, 눌림/길게 눌림, `button` CLI | SW1~4 | button | GPIO 인터럽트(GPIOTE)로 깨우기, 폴링 없음 | |
 | 09 | `log` | 부팅 로그 버퍼, 로그 채널 선택 | | log | 로그 끔 상태 전류 | |
-| 10 | `module` | **ap 모듈 구조**: `MODULE_DEF` 로 모듈 등록, 모듈별 스레드(cli 스레드 등), 모듈 초기화 순서 (§4) | | ap/modules (nu54dk, NU87) | 모듈 스레드는 이벤트로만 깨어남 | |
+| 10 | `module` | **ap 모듈 구조**: `MODULE_DEF` 로 모듈 등록, 모듈별 스레드, cli_mgr(cli 스레드 + 채널 전환, 입력 대기 sleep), 모듈 초기화 순서 (§4) | | ap/modules (nu54dk, NU87) | 모듈 스레드는 이벤트로만 깨어남 | |
 | 11 | `power` | 소비전류 기준선: System ON idle / System OFF + 버튼 깨우기, DC/DC 확인, UART RX 자동 끄기 | SW, J1 | reset | **기준 전류 표 작성** (이후 단계와 비교) | |
 | 12 | `adc` | 배터리 전압(VBAT_MON), 칩 온도 | P1.12(AIN5), TEMP | adc | 측정할 때만 SAADC 켜기, 분압 저항 누설(≈2.5 µA@3.7 V) | |
 | 13 | `pmic` | BQ25186 충전기: 상태/인터럽트/충전 제어 | I2C 0x6A, P1.11 INT, P2.08 PG, P2.10 CE | (신규, i2c 사용) | INT 인터럽트로 상태 변화 감지 | |

@@ -35,7 +35,7 @@ cli# md 0x0 32          메모리 덤프
 | `common/core/qbuffer.c/h` | nu54dk (NU87 과 동일) | 링 버퍼 |
 | `common/hw/include/uart.h` | NU87-TinyDK | `uart_driver_t` 가상 채널 구조 + `uartWaitRx` 추가 |
 | `hw/driver/uart.c` | NU87 구조 + 새로 작성 | Zephyr UARTE async API |
-| `ap/ap.c` | | `cliOpen` → `cliMain` 루프 |
+| `ap/ap.c` | | `cliOpen` → `cliMain(); delay(1);` 루프 (NU87 cli 스레드와 같음) |
 
 레퍼런스 저장소 두 곳을 참조했다.
 - [nu54dk](https://github.com/chcbaram/nu54dk) `firmware/nu54l15-fw` : 이전 nRF54L 보드 (Zephyr)
@@ -73,7 +73,7 @@ nu54dk 의 uart.c 는 Zephyr console 서브시스템(`console_read`) + 수신 �
 
 | 항목 | 내용 |
 |---|---|
-| `uartWaitRx(ch, timeout_ms)` 추가 | 수신까지 폴링 없이 sleep. cli 루프, `uart test`, 센서 반복 측정에서 사용 |
+| `uartWaitRx(ch, timeout_ms)` / `uartRxNotify(ch)` 추가 | 수신까지 폴링 없이 sleep (`uart test`, 센서 반복 측정). 가상 채널 드라이버는 데이터를 받으면 `uartRxNotify` 를 불러 깨운다 (`uart_driver_t` 는 NU87 그대로) |
 | `uart open/close` CLI 추가 | 채널을 끄고 켜며 전류 비교 |
 | `uart test` | 받은 바이트를 되돌려 보내 TX 도 확인, 종료 키는 명령줄에 남기지 않음 |
 | `CLI_USE()` | NU87 은 매크로 안에서 `defined()` 사용 → Zephyr 빌드에서 `-Wexpansion-to-defined` 경고. `#ifdef _USE_HW_CLI` 로 나눠 같은 의미로 정의 |
@@ -83,13 +83,13 @@ nu54dk 의 uart.c 는 Zephyr console 서브시스템(`console_read`) + 수신 �
 
 | 항목 | 내용 |
 |---|---|
-| cli 루프 | `cliMain()` 후 `uartWaitRx(ch, 1000)` → 입력이 없으면 sleep (nu54dk 는 5 ms 마다 깨어남) |
+| cli 루프 | `cliMain()` 은 기다리지 않는 함수로 유지 (다른 프로젝트와 같은 의미). ap 루프는 `delay(1)`. RX 가 켜져 있는 동안은 UARTE 전류가 훨씬 커서 1 ms 깨어남의 영향은 작다. 입력 대기(sleep)는 모듈 단계(10)의 cli_mgr 스레드에서 `uartWaitRx` 로 처리한다 |
 | RX 켜진 동안 | UARTE + 클럭 동작 → 대기 전류 증가. **power 단계(11)에서 측정** |
 | 개선 예정 | 입력이 한동안 없으면 RX 를 끄고, RX 핀 GPIO 인터럽트로 다시 켜기 (첫 글자는 버려짐) |
 
-## 5. 검증 결과 (2026-09-20, NCS v3.3.0, macOS)
+## 5. 검증 결과 (2026-09-20, macOS)
 
-- [x] 빌드: FLASH 55 KB / RAM 16 KB
+- [x] 빌드: FLASH 59 KB / RAM 14.9 KB (NCS v3.4.1)
 - [x] cli 명령 (`help`, `uart info`) VCOM1
 - [x] `uart test 2`: VCOM0 로 보낸 `AB\r\n` 수신 및 되돌림 확인 → VCOM0 RX/TX 모두 정상
 - [x] `uart close 2` / `uart open 2 115200`, cli 포트 닫기 거부

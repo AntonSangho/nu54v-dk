@@ -55,9 +55,10 @@ Wakeup(0x3517) → 240 us 대기 → 측정 명령(0x7866 / LP 0x609C) → 13 ms
 | Low power 측정 | 변환 0.8 ms (정확도/반복성은 약간 낮아짐) |
 | 반복 측정 | 주기 사이 `uartWaitRx()` 로 sleep (키 입력 시 바로 종료) |
 
-## 5. 검증 결과 (2026-09-20, NCS v3.3.0, macOS)
+## 5. 검증 결과 (2026-09-20, macOS)
 
-- [x] 빌드: FLASH 60 KB / RAM 14.4 KB
+- [x] 빌드: FLASH 64 KB / RAM 13.7 KB (NCS v3.4.1)
+- [x] NCS v3.4.1 (Zephyr 4.4.2) 에서 `uart info` / `i2c scan` / `shtc3 read` / GDB 브레이크포인트 확인 (baram-term)
 - [x] `shtc3 info` ID 0x0887, `shtc3 read` 약 27.9 ℃ / 58.5 %RH
 - [x] 반복 측정 / Low power 모드 (측정 16 ms → 5 ms)
 - [ ] 소비전류 측정 (power 예제 이후)
