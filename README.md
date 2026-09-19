@@ -47,6 +47,7 @@ NUCODE NU54-DK (nRF54L15) 보드 브링업 펌웨어.
 | 05 | `uart` | UART(async DMA, 가상 채널) + CLI — 이후 예제의 기반 |
 | 06 | `i2c` | I2C, `i2c scan` |
 | 07 | `shtc3` | Qwiic SHTC3 온습도 센서 |
+| 08 | `button` | 버튼 (인터럽트 방식), 클릭 / 길게 누름 |
 
 앞으로의 계획: [docs/roadmap.md](docs/roadmap.md)
 

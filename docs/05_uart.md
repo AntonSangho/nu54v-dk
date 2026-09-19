@@ -51,7 +51,7 @@ uartOpen/Read/Write/Available(ch)
 ```
 
 - 하드웨어 채널은 `uart_hw[]` 에 `{ .ch, .h_dev }` 로 등록한다. `hw_def.h` 에 `HW_UART_CH_VCOM0` 이 있을 때만 uart30 이 들어간다.
-- BLE NUS(로드맵 17) 는 `uart_driver_t` 를 구현해 `uartSetDriver(HW_UART_CH_BLE, …)` 로 붙인다.
+- BLE NUS(로드맵 16) 는 `uart_driver_t` 를 구현해 `uartSetDriver(HW_UART_CH_BLE, …)` 로 붙인다.
 
 ### 수신 방식 선택 (console 서브시스템 → async API)
 

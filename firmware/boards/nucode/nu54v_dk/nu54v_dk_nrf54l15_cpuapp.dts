@@ -125,12 +125,19 @@
 	status = "okay";
 };
 
+/*
+ * 버튼 핀은 GPIO SENSE 로 엣지 검출 (GPIOTE IN 채널 대신) → 대기 전류가 거의 없고 System OFF 깨우기에도 쓴다.
+ *   gpio0 : P0.04 (SW4)
+ *   gpio1 : P1.08 (SW3), P1.09 (SW2), P1.13 (SW1)
+ */
 &gpio0 {
 	status = "okay";
+	sense-edge-mask = <(BIT(4))>;
 };
 
 &gpio1 {
 	status = "okay";
+	sense-edge-mask = <(BIT(8) | BIT(9) | BIT(13))>;
 };
 
 &gpio2 {

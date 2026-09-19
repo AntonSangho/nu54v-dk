@@ -79,6 +79,7 @@ DTS 결정 사항:
 - **DC/DC 미사용(LDO)**: 모듈 내부 DC/DC 인덕터 실장 여부 미확인. 확인되면 DTS 주석의 `vregmain` 설정으로 DC/DC 를 켠다 (소비전류 감소).
 - `uart20/uart30/i2c21` 에 `zephyr,pm-device-runtime-auto` → `CONFIG_PM_DEVICE_RUNTIME=y` 인 앱에서 미사용 시 자동 suspend.
 - `uart30`, `i2c21` 는 기본 disabled. 필요한 프로젝트에서 overlay 로 `status = "okay"`.
+- 버튼 핀(P0.04, P1.08, P1.09, P1.13)은 `sense-edge-mask` 로 GPIO SENSE 엣지 검출 → GPIOTE IN 채널을 쓰지 않아 대기 전류가 작고, System OFF 깨우기에도 쓴다.
 
 ## 5. 미확인 / TODO
 

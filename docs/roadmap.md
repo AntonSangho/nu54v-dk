@@ -13,7 +13,7 @@
     |---|---|
     | `nrf54l-fw` | button, adc, eeprom(→ nvs), log, ap/modules(module·system·cli) |
     | `an54l-power` | 주변장치 suspend/resume (uart, spi 의 `pm_device`) → power |
-    | `an54l-oled`, `an54l-fw` | i2c, spi, spi_flash, lcd(+hangul, resize) → epaper |
+    | `an54l-oled`, `an54l-fw` | i2c, spi, spi_flash, lcd(+hangul, resize) → epaper (20) |
     | `nrf54l-fw-fota` | **BLE NUS (`CONFIG_BT_NUS`, ble_uart 모듈) + MCUboot + MCUmgr BT OTA DFU** → ble_nus, dfu |
     | `xiao-nrf54l-fw` | 최소 구성 (led, log, uart, cli) |
 - 모든 단계에서 저전력 항목을 확인한다. 전류는 J1(VDD_MOD)에서 PPK2 로 잰다.
@@ -26,19 +26,19 @@
 | 05 | `uart` | **공통 기반**: uart(VCOM1/VCOM0, async DMA, 가상 채널 구조) + qbuffer + cli. baram-term 시리얼로 명령 | uart20, uart30 | uart, cli (NU87), qbuffer | RX 켜짐/꺼짐 전류, 입력 대기 sleep | ✅ |
 | 06 | `i2c` | i2c 모듈, `i2c scan/read/write` 로 장치 확인 | i2c21 (P1.02/03), Qwiic J5, PMIC | i2c | TWIM PM runtime | ✅ |
 | 07 | `shtc3` | Qwiic SHTC3 온습도 센서 드라이버 + `shtc3` CLI | I2C 0x70 | (신규) | 측정 시에만 센서 wakeup | ✅ |
-| 08 | `button` | 스위치 입력, 디바운스, 눌림/길게 눌림, `button` CLI | SW1~4 | button | GPIO 인터럽트(GPIOTE)로 깨우기, 폴링 없음 | |
+| 08 | `button` | 스위치 입력, 디바운스, 클릭/길게 누름 이벤트, `button` CLI | SW1~4 | button (stm32h7-lvgl 최신판 API 일부) | GPIO SENSE 인터럽트 + 1회 타이머, 주기 스캔 없음 | ✅ |
 | 09 | `log` | 부팅 로그 버퍼, 로그 채널 선택 | | log | 로그 끔 상태 전류 | |
 | 10 | `module` | **ap 모듈 구조**: `MODULE_DEF` 로 모듈 등록, 모듈별 스레드, cli_mgr(cli 스레드 + 채널 전환, 입력 대기 sleep), 모듈 초기화 순서 (§4) | | ap/modules (nu54dk, NU87) | 모듈 스레드는 이벤트로만 깨어남 | |
 | 11 | `power` | 소비전류 기준선: System ON idle / System OFF + 버튼 깨우기, DC/DC 확인, UART RX 자동 끄기 | SW, J1 | reset | **기준 전류 표 작성** (이후 단계와 비교) | |
 | 12 | `adc` | 배터리 전압(VBAT_MON), 칩 온도 | P1.12(AIN5), TEMP | adc | 측정할 때만 SAADC 켜기, 분압 저항 누설(≈2.5 µA@3.7 V) | |
 | 13 | `pmic` | BQ25186 충전기: 상태/인터럽트/충전 제어 | I2C 0x6A, P1.11 INT, P2.08 PG, P2.10 CE | (신규, i2c 사용) | INT 인터럽트로 상태 변화 감지 | |
 | 14 | `nvs` | 설정 저장 (storage 파티션), eeprom 에뮬레이션 | RRAM `storage_partition` | nvs, eeprom, flash | 쓰기 횟수·타이밍 | |
-| 15 | `rtc` | 시간 유지, 주기 깨우기, 워치독 | GRTC, WDT31 | rtc, reset | LFXO 로 GRTC 동작, 깨우는 주기 | |
-| 16 | `epaper` | **WeAct 4.2" e-paper (SSD1683, 400×300)** : SPI, 화면 버퍼, 글자/도형, 전체/부분 갱신 | SPI00 + GPIO (P2 헤더, §3) | spi, lcd (+ lcd/ssd1306 구조) | 갱신 후 deep sleep, 부분 갱신, 필요 시 VCC 차단 | |
-| 17 | `ble_nus` | **BLE NUS 를 uart 가상 채널로 추가 → baram-term 과 통신** | RADIO | uart(`uartSetDriver`), cli | 광고/연결 간격, TX 전력 | |
-| 18 | `ble_power` | BLE 저전력 튜닝: 광고 주기, 연결 파라미터, 슬레이브 레이턴시 | RADIO | | 광고/연결 상태별 평균 전류 표 | |
-| 19 | `dfu` | MCUboot + SMP 로 펌웨어 업데이트 (UART / BLE) | slot0/slot1 파티션 | loader, ymodem | 부트로더 크기와 부팅 시간 | |
-| 20 | `app` | 위 모듈을 합친 기본 펌웨어 (cli + ble_nus + 센서 + e-paper + 전원 관리) | 전체 | ap/system | 동작 모드별 전류 | |
+| 15 | `rtc` | **날짜·시계**: 연월일 시분초, epoch(UTC), 시간대, `rtc` CLI(`rtc info / set date / set time / tz`), 주기 깨우기, 워치독 (§5) | GRTC(LFXO), WDT31, 보존 RAM | rtc (NU87 API), reset | GRTC 는 System OFF 에서도 동작, 1초 틱 없이 조회 시 계산 | |
+| 16 | `ble_nus` | **BLE NUS 를 uart 가상 채널로 추가 → baram-term 과 통신** | RADIO | uart(`uartSetDriver`), cli | 광고/연결 간격, TX 전력 | |
+| 17 | `ble_power` | BLE 저전력 튜닝: 광고 주기, 연결 파라미터, 슬레이브 레이턴시 | RADIO | | 광고/연결 상태별 평균 전류 표 | |
+| 18 | `dfu` | MCUboot + SMP 로 펌웨어 업데이트 (UART / BLE) | slot0/slot1 파티션 | loader, ymodem | 부트로더 크기와 부팅 시간 | |
+| 19 | `app` | 위 모듈을 합친 기본 펌웨어 (cli + ble_nus + 센서 + 전원 관리) | 전체 | ap/system | 동작 모드별 전류 | |
+| 20 | `epaper` | **WeAct 4.2" e-paper (SSD1683, 400×300)** (마지막 단계, app 에 화면 추가) : SPI, 화면 버퍼, 글자/도형, 전체/부분 갱신 | SPI00 + GPIO (P2 헤더, §3) | spi, lcd (+ lcd/ssd1306 구조) | 갱신 후 deep sleep, 부분 갱신, 필요 시 VCC 차단 | |
 
 선택 예제 (필요할 때):
 
@@ -48,7 +48,7 @@
 | `swo` | SWO 트레이스 (P2.07, LED3 와 공유 — SB13) |
 | `flpr` | RISC-V 코프로세서(FLPR)로 소프트 주변장치 |
 
-## 2. BLE NUS ↔ baram-term (17단계) 설계 방향
+## 2. BLE NUS ↔ baram-term (16단계) 설계 방향
 
 목표: 기존 cli 를 선 없이 BLE 로 쓴다. baram-term 이 BLE NUS 로 보드에 연결해 시리얼처럼 명령을 주고받는다.
 
@@ -71,7 +71,7 @@ VCOM1 (uart20) ─────────────────────�
   - TX 전력은 필요한 만큼만
 - **확인 필요**: baram-term 의 NUS 접속 방식 (장치 이름/주소로 찾기, 재연결, 줄바꿈 처리)
 
-## 3. e-paper (16단계) 계획
+## 3. e-paper (20단계, 마지막) 계획
 
 자료: https://github.com/WeActStudio/WeActStudio.EpaperModule (`Doc/4.2 Inch Black&Write`, `Doc/4.2 Inch Black&Write&Red`, `Doc/SSD1683_Datasheet.PDF`)
 
@@ -123,7 +123,35 @@ ap/
 
 저전력: 모든 모듈 스레드가 이벤트를 기다리는 동안 idle 스레드가 WFI 로 들어간다. 주기 작업은 `k_timer`/`k_work_delayable` 로.
 
-## 5. 단계 공통 체크리스트
+## 5. rtc 날짜·시계 (15단계) 계획
+
+API 는 NU87 `rtc.h` 를 그대로 쓴다.
+
+```c
+rtcGetInfo / rtcSetInfo      // 날짜 + 시각 (지역 시각)
+rtcGetDate / rtcSetDate      // year, month, day, week
+rtcGetTime / rtcSetTime      // hours, minutes, seconds
+rtcGetEpochTime / rtcSetEpochTime   // UTC epoch (초)
+rtcGetTimeZone / rtcSetTimeZone     // UTC 로부터의 분 (한국 +540)
+rtcIsTimeSet
+```
+
+nRF54L15 에는 달력 RTC 가 없다. NU87(RTL8720DF) 과 같은 방식으로 **기준 epoch + 카운터** 로 만든다.
+
+```
+epoch = base_epoch + (GRTC 카운터 - base_count) / 1 000 000
+```
+
+| 항목 | 내용 |
+|---|---|
+| 카운터 | GRTC (LFXO 32.768 kHz 기반, µs 단위). System OFF 에서도 계속 동작 |
+| 기준값 보관 | `base_epoch`, `base_count`, 시간대를 **보존 RAM**(retained RAM, 리셋에도 유지)에 둔다. 전원이 완전히 꺼지면 시각을 잃는다 → `rtcIsTimeSet()` false |
+| 시각 맞추기 | cli `rtc set date/time`, 이후 BLE(16)로 호스트(baram-term) 시각 동기화, 필요하면 nvs(14)에 시간대 저장 |
+| 날짜 계산 | epoch ↔ 연월일/요일 변환은 NU87 `rtcCivilToEpoch` 방식 (윤년 포함) |
+| 저전력 | 1초 틱 인터럽트를 쓰지 않는다. 시각은 조회할 때 계산하고, 알람/주기 깨우기만 GRTC compare 로 한다 |
+| 정확도 | LFXO(외부 크리스털 Y1) 오차 ±20 ppm 수준 → 하루 약 ±2 초. 장기간이면 주기 동기화 |
+
+## 6. 단계 공통 체크리스트
 
 - [ ] 레퍼런스 모듈 확인 (구조는 NU87 → nu54dk, nRF54L15 Zephyr 사용법은 nrf54l15-bd 도 확인) → 구조 유지하며 이식
 - [ ] 모듈에 CLI 명령 추가 (`#if CLI_USE(HW_xxx)`), cli 로 먼저 시험

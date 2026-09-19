@@ -15,6 +15,7 @@
 | 05 | [05_uart.md](05_uart.md) | UART(async) + CLI — 이후 예제의 공통 기반 |
 | 06 | [06_i2c.md](06_i2c.md) | I2C, `i2c scan` |
 | 07 | [07_shtc3.md](07_shtc3.md) | Qwiic SHTC3 온습도 센서 |
+| 08 | [08_button.md](08_button.md) | 버튼: 인터럽트 방식, 클릭 / 길게 누름 |
 | - | [roadmap.md](roadmap.md) | 브링업 로드맵 (05 이후 예제 계획, BLE NUS ↔ baram-term) |
 
 새 기능은 [roadmap.md](roadmap.md) 의 번호대로 `NN_<기능>.md` 를 추가하고 위 표에 적는다.
@@ -34,6 +35,7 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-20 | `projects/button` : GPIO SENSE 인터럽트 + 디바운스/길게 누름 1회 타이머 (주기 스캔 없음). 보드 DTS 에 버튼 핀 `sense-edge-mask`. 로드맵에서 e-paper 를 마지막(20)으로 |
 | 2026-09-20 | **NCS v3.4.1 로 전환** (macOS 12 에서는 cmake 만 시스템 cmake 로 임시 우회, fw 스크립트 자동). 4개 예제 빌드, shtc3 보드 동작·GDB 디버깅 확인. uart 모듈에 `uartRxNotify` (가상 채널 드라이버용). 첫 커밋 `bae82d7` |
 | 2026-09-20 | `projects/uart`, `i2c`, `shtc3` 로 분리. uart 모듈을 NU87 구조(가상 채널) + Zephyr async(DMA) 로 새로 작성, cli 는 NU87 버전. 각 모듈 CLI 로 시험 (VCOM0/1, i2c scan, shtc3). NCS v3.4.1 설치 실패 원인 확인 (아래) |
 | 2026-09-20 | (이전) `projects/i2c_shtc3` : i2c 모듈 이식, SHTC3 드라이버, 보드 `board.c` 에서 NFC 패드 끄기 (P1.02/03 I2C). SHTC3 측정·PMIC(0x6A) 응답 확인. 로드맵에 e-paper(WeAct 4.2", SSD1683) 추가, cli 를 06 으로 앞당김 |
@@ -48,7 +50,7 @@
   다음 릴리스에서 삭제 예정이라 보드에서 끄지 않고 둔다 (끄면 삭제된 버전에서 오히려 에러).
 - [ ] LED 육안 확인, VS Code F5 디버깅 확인
 - [ ] Windows / Linux 에서 빌드·다운로드·디버깅 확인
-- [ ] 다음 예제: [roadmap.md](roadmap.md) 순서 (08 button → 09 log → **10 module(ap 모듈·스레드)** → … → 16 epaper → 17 ble_nus)
+- [ ] 다음 예제: [roadmap.md](roadmap.md) 순서 (09 log → **10 module(ap 모듈·스레드)** → 11 power → … → 16 ble_nus → … → 20 epaper(마지막))
 - [ ] e-paper 모델(흑백/흑백적)과 실제 배선 핀 확정
 - [ ] 보드 미확인 항목 ([02_board_package.md](02_board_package.md) §5): DC/DC, HFXO 부하, 솔더 브리지
 - [ ] 원격 저장소 연결 (`git remote add origin <url>`)
