@@ -18,6 +18,7 @@
 | 08 | [08_button.md](08_button.md) | 버튼: 인터럽트 방식, 클릭 / 길게 누름 |
 | 09 | [09_log.md](09_log.md) | 로그: boot/list 버퍼, `log` CLI |
 | 10 | [10_module.md](10_module.md) | ap 모듈 구조, 모듈별 스레드 (cli_mgr) |
+| 11 | [11_power.md](11_power.md) | 리셋 원인, System OFF (버튼/GRTC 깨우기), **시험 절차(SWD 분리)** |
 | - | [roadmap.md](roadmap.md) | 브링업 로드맵 (05 이후 예제 계획, BLE NUS ↔ baram-term) |
 
 새 기능은 [roadmap.md](roadmap.md) 의 번호대로 `NN_<기능>.md` 를 추가하고 위 표에 적는다.
@@ -32,11 +33,13 @@
   - https://github.com/chcbaram/nu54dk `firmware/nu54l15-fw` : 이전 nRF54L 보드용 (Zephyr). hw/driver 모듈(button, i2c, spi, sd, fatfs, lcd, i2s, log …)
   - https://github.com/chcbaram/NU87-TinyDK `firmware/nu87-fw` : 더 최신 구조 (uart 가상 채널 `uart_driver_t`, cli, ap 모듈). 같은 모듈이 있으면 이쪽을 먼저 본다
   - https://github.com/chcbaram/nrf54l15-bd `firmware/*` : nRF54L15 Zephyr 프로젝트 모음 (button/adc/eeprom/lcd, power, **BLE NUS + FOTA**). 단계별 대응은 roadmap.md
+  - https://github.com/chcbaram/baram-nrf54-arduino : **같은 보드(NU54V-DK)** Arduino 코어. 보드 실측 기록(`docs/boards/NU54V-DK.md`)과 실기 함정 목록(`CLAUDE.md` §7)
 
 ## 진행 상황
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-20 | `projects/power` : reset/power 모듈. System OFF 가 안 깨어나던 원인 = SWD 디버그 모드 (baram-nrf54-arduino F8) → DISABLE_SWD + 전원 재인가로 GRTC/버튼 깨우기 확인. 전류 측정은 나중에 |
 | 2026-09-20 | GitHub 공개 저장소 https://github.com/chcbaram/nu54v-dk (MIT). `projects/module` : NU87 module + cli_mgr 스레드, `moduleWaitReady`, main 은 잠듦 |
 | 2026-09-20 | `projects/log` : nu54dk log.c (+ ISR 안전, 길이 제한), NU87 순서로 hwInit 정리 |
 | 2026-09-20 | `projects/button` : GPIO SENSE 인터럽트 + 디바운스/길게 누름 1회 타이머 (주기 스캔 없음). 보드 DTS 에 버튼 핀 `sense-edge-mask`. 로드맵에서 e-paper 를 마지막(20)으로 |
@@ -54,7 +57,8 @@
   다음 릴리스에서 삭제 예정이라 보드에서 끄지 않고 둔다 (끄면 삭제된 버전에서 오히려 에러).
 - [ ] LED 육안 확인, VS Code F5 디버깅 확인
 - [ ] Windows / Linux 에서 빌드·다운로드·디버깅 확인
-- [ ] 다음 예제: [roadmap.md](roadmap.md) 순서 (**11 power** → 12 adc → … → 16 ble_nus → … → 20 epaper(마지막))
+- [ ] 소비전류 측정 (J1 + PPK2, SWD 분리) — [11_power.md](11_power.md) §5 표 채우기, DC/DC 판단
+- [ ] 다음 예제: [roadmap.md](roadmap.md) 순서 (**12 adc** → 13 pmic → … → 16 ble_nus → … → 20 epaper(마지막))
 - [ ] e-paper 모델(흑백/흑백적)과 실제 배선 핀 확정
 - [ ] 보드 미확인 항목 ([02_board_package.md](02_board_package.md) §5): DC/DC, HFXO 부하, 솔더 브리지
 

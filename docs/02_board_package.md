@@ -68,13 +68,13 @@
 | 항목 | 내용 |
 |---|---|
 | VDD_3V3_SYS | TPS7A37 LDO 3.3 V (VSYS 입력) |
-| VDD_MOD | 모듈 전원. **J1 점퍼**로 VDD_3V3_SYS 와 연결 → 전류 측정 지점 (PPK2 연결) |
+| VDD_MOD | 모듈 전원. **J1 점퍼**로 VDD_3V3_SYS 와 연결 → 전류 측정 지점 (PPK2 연결). Qwiic(J5), Qwiic 풀업, LED 버퍼 U8/U9, 리셋 풀업도 같은 레일 |
 | 충전 | BQ25186 (I2C 0x6A), 배터리 J2, VBAT_MON 분압 |
 | D5 (파랑) | VDD_MOD 인가 표시 |
-| 레벨시프터 | VDD_MOD_LS (DAP 전원이 있을 때만), SW1 로 분리 가능 |
+| 레벨시프터 | VDD_MOD_LS (DAP 전원이 있을 때만). **SW1 `DISABLE_SWD` ON → SWD 분리** (System OFF 시험에 필수, 11_power §4), `DISABLE_UART` ON → VCOM 분리 |
 
 DTS 결정 사항:
-- `lfxo`: 외부 부하 커패시터(C1/C2) → `load-capacitors = "external"`
+- `lfxo`: 외부 부하 커패시터(C1/C2) → `load-capacitors = "external"` (Arduino 코어에서 실측 오차 +25~38 ppm)
 - `hfxo`: 모듈 내부 → nRF54L15 DK 기본값(internal, 15 pF)
 - **DC/DC 미사용(LDO)**: 모듈 내부 DC/DC 인덕터 실장 여부 미확인. 확인되면 DTS 주석의 `vregmain` 설정으로 DC/DC 를 켠다 (소비전류 감소).
 - `uart20/uart30/i2c21` 에 `zephyr,pm-device-runtime-auto` → `CONFIG_PM_DEVICE_RUNTIME=y` 인 앱에서 미사용 시 자동 suspend.
@@ -85,6 +85,6 @@ DTS 결정 사항:
 
 - [ ] 모듈 내부 DC/DC 인덕터 유무 → DC/DC 활성화
 - [ ] HFXO 내부 부하 용량 값 (모듈 데이터시트)
-- [ ] 솔더 브리지 기본 상태 (SB1~SB24) 실물 확인
+- [x] 솔더 브리지 (baram-nrf54-arduino 실측): SB1~SB4(PMIC INT/PG/CE, VBAT_MON), SB9~SB12(VCOM1), SB5~SB8(VCOM0), SB14/SB15(Qwiic) 연결, SB20/SB21 미실장. 나머지는 미확인
 - [ ] PMIC(BQ25186) / VBAT_MON / Qwiic 노드 정의 (I2C·ADC 예제에서)
 - [x] P1.02/P1.03 NFC 핀 겸용 → `board.c` 에서 `NFCT.PADCONFIG` 끔 (리셋값이 NFC 활성). I2C 동작 확인 (05)

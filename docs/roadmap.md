@@ -16,6 +16,7 @@
     | `an54l-oled`, `an54l-fw` | i2c, spi, spi_flash, lcd(+hangul, resize) → epaper (20) |
     | `nrf54l-fw-fota` | **BLE NUS (`CONFIG_BT_NUS`, ble_uart 모듈) + MCUboot + MCUmgr BT OTA DFU** → ble_nus, dfu |
     | `xiao-nrf54l-fw` | 최소 구성 (led, log, uart, cli) |
+  - [baram-nrf54-arduino](https://github.com/chcbaram/baram-nrf54-arduino) : **같은 보드(NU54V-DK)** 의 Arduino 코어. `docs/boards/NU54V-DK.md`(실측한 솔더 브리지·핀·PMIC·J1), `CLAUDE.md` §7 (F8 디버거와 System OFF, F9 WFI/BASEPRI 등 실기에서 잡은 함정)
 - 모든 단계에서 저전력 항목을 확인한다. 전류는 J1(VDD_MOD)에서 PPK2 로 잰다.
 
 ## 1. 단계별 계획
@@ -29,7 +30,7 @@
 | 08 | `button` | 스위치 입력, 디바운스, 클릭/길게 누름 이벤트, `button` CLI | SW1~4 | button (stm32h7-lvgl 최신판 API 일부) | GPIO SENSE 인터럽트 + 1회 타이머, 주기 스캔 없음 | ✅ |
 | 09 | `log` | 부팅 로그 버퍼, 로그 채널, `log` CLI | VCOM1 | log (nu54dk, API NU87) | `logDisable()` 로 UART 송신 끄기 | ✅ |
 | 10 | `module` | **ap 모듈 구조**: `MODULE_DEF` 로 모듈 등록, 모듈별 스레드, cli_mgr(cli 스레드, 입력 대기 sleep), `module info/thread` (§4) | | module (NU87), ldscript (nu54dk) | 모든 스레드가 이벤트로만 깨어남, main 은 잠듦 | ✅ |
-| 11 | `power` | 소비전류 기준선: System ON idle / System OFF + 버튼 깨우기, DC/DC 확인, UART RX 자동 끄기 | SW, J1 | reset | **기준 전류 표 작성** (이후 단계와 비교) | |
+| 11 | `power` | reset(리셋 원인) + power(System OFF, 버튼/GRTC 깨우기, 레귤레이터 모드). **전류 측정은 나중에** | SW, GRTC, J1 | reset (NU87), System OFF (Zephyr 샘플, baram-nrf54-arduino) | SWD 분리 + 전원 재인가 후 시험 (11_power §4) | ✅ (측정 예정) |
 | 12 | `adc` | 배터리 전압(VBAT_MON), 칩 온도 | P1.12(AIN5), TEMP | adc | 측정할 때만 SAADC 켜기, 분압 저항 누설(≈2.5 µA@3.7 V) | |
 | 13 | `pmic` | BQ25186 충전기: 상태/인터럽트/충전 제어 | I2C 0x6A, P1.11 INT, P2.08 PG, P2.10 CE | (신규, i2c 사용) | INT 인터럽트로 상태 변화 감지 | |
 | 14 | `nvs` | 설정 저장 (storage 파티션), eeprom 에뮬레이션 | RRAM `storage_partition` | nvs, eeprom, flash | 쓰기 횟수·타이밍 | |

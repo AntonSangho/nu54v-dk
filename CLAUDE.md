@@ -12,6 +12,8 @@
 - 핀은 보드 DTS(`firmware/boards/nucode/nu54v_dk`)에서 가져온다
 - 기능 추가 시 docs 문서 작성 + `00_handoff.md` 갱신
 - 커밋 메시지에 Claude 서명을 넣지 않는다
+- **저전력(System OFF) 시험은 SWD 를 분리하고 전원을 다시 넣은 뒤** (DAP 스위치 `DISABLE_SWD` ON → USB 재연결). 디버거가 붙어 있으면 깨어나지 않는다 — docs/11_power.md §4
+- 같은 보드의 실측 기록: https://github.com/chcbaram/baram-nrf54-arduino (`docs/boards/NU54V-DK.md`, `CLAUDE.md` §7)
 
 ## 명령 (프로젝트 폴더에서)
 
