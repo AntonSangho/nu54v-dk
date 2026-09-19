@@ -6,7 +6,7 @@
 ## 핵심 규칙 (상세: docs/00_handoff.md)
 
 - 펌웨어 구조·모듈화는 사용자 방식 유지 (`main → hwInit/apInit/apMain`, `ap / hw / hw/driver / bsp / common` 계층, `hw_def.h` 의 `_USE_HW_xxx`)
-- 모듈 추가 시 레퍼런스의 같은 모듈을 먼저 참조: https://github.com/chcbaram/NU87-TinyDK (`firmware/nu87-fw`, 로컬 `../NU87-TinyDK`, 최신 구조) → https://github.com/chcbaram/nu54dk (`firmware/nu54l15-fw`, 로컬 `../nu54dk`)
+- 모듈 추가 시 레퍼런스의 같은 모듈을 먼저 참조: https://github.com/chcbaram/NU87-TinyDK (`firmware/nu87-fw`, 로컬 `../NU87-TinyDK`, 최신 구조) → https://github.com/chcbaram/nu54dk (`firmware/nu54l15-fw`, 로컬 `../nu54dk`). nRF54L15 Zephyr 사용법·BLE NUS·FOTA 는 https://github.com/chcbaram/nrf54l15-bd (로컬 `../nrf54l15-bd`) 도 확인
 - 모듈은 자기 CLI 명령을 갖고 cli 로 시험한다 (ap 에 임시 시험 코드 금지)
 - 항상 저전력 고려
 - 핀은 보드 DTS(`firmware/boards/nucode/nu54v_dk`)에서 가져온다

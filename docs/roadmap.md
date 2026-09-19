@@ -8,6 +8,14 @@
 - **참조 모듈**: 레퍼런스의 같은 이름 모듈. 구조는 유지하고 이 보드와 저전력에 맞게 고친다.
   - [nu54dk](https://github.com/chcbaram/nu54dk) `firmware/nu54l15-fw` : 이전 nRF54L 보드 (Zephyr)
   - [NU87-TinyDK](https://github.com/chcbaram/NU87-TinyDK) `firmware/nu87-fw` : 더 최신 구조 (uart 가상 채널, cli, ap 모듈). 두 곳에 같은 모듈이 있으면 NU87 을 먼저 본다.
+  - [nrf54l15-bd](https://github.com/chcbaram/nrf54l15-bd) `firmware/*` : nRF54L15 (Zephyr) 프로젝트 여러 개. 같은 SoC 라 Zephyr API 사용법 참고용
+    | 프로젝트 | 참고할 단계 |
+    |---|---|
+    | `nrf54l-fw` | button, adc, eeprom(→ nvs), log, ap/modules(module·system·cli) |
+    | `an54l-power` | 주변장치 suspend/resume (uart, spi 의 `pm_device`) → power |
+    | `an54l-oled`, `an54l-fw` | i2c, spi, spi_flash, lcd(+hangul, resize) → epaper |
+    | `nrf54l-fw-fota` | **BLE NUS (`CONFIG_BT_NUS`, ble_uart 모듈) + MCUboot + MCUmgr BT OTA DFU** → ble_nus, dfu |
+    | `xiao-nrf54l-fw` | 최소 구성 (led, log, uart, cli) |
 - 모든 단계에서 저전력 항목을 확인한다. 전류는 J1(VDD_MOD)에서 PPK2 로 잰다.
 
 ## 1. 단계별 계획
@@ -55,7 +63,7 @@ VCOM1 (uart20) ─────────────────────�
   (NU87 의 `HW_UART_CH_BLE` / `cli_ble` 와 같은 방식).
 - **수신**: NUS RX 콜백 → qbuffer 에 넣기 → `uartAvailable/uartRead` 로 꺼내기 (VCOM 수신과 같은 흐름)
 - **송신**: `uartWrite` → 연결되어 있고 알림(notify)이 켜져 있으면 MTU 크기로 나눠 전송. 연결이 없으면 버리거나 버퍼에 둔다.
-- **SDK**: NCS `bt_nus` 서비스(`CONFIG_BT_NUS`)를 우선 검토한다. Zephyr 의 `CONFIG_BT_ZEPHYR_NUS` 도 비교한다.
+- **SDK**: NCS `bt_nus` 서비스(`CONFIG_BT_NUS`)를 우선 검토한다. nrf54l15-bd `nrf54l-fw-fota` 의 `ble_uart` 모듈이 같은 SoC 에서 이미 쓴 예다 (NCS peripheral_uart 샘플 기반). Zephyr 의 `CONFIG_BT_ZEPHYR_NUS` 도 비교한다.
 - **MTU / 데이터 길이**: 처리량을 위해 MTU 247, Data Length Extension, 2M PHY 사용 여부 결정
 - **저전력**:
   - 광고: 연결 전 빠른 광고 → 일정 시간 뒤 느린 광고(예: 1 s) 또는 멈춤, 버튼으로 다시 시작
@@ -117,7 +125,7 @@ ap/
 
 ## 5. 단계 공통 체크리스트
 
-- [ ] 레퍼런스 모듈 확인 (NU87 → nu54dk 순) → 구조 유지하며 이식
+- [ ] 레퍼런스 모듈 확인 (구조는 NU87 → nu54dk, nRF54L15 Zephyr 사용법은 nrf54l15-bd 도 확인) → 구조 유지하며 이식
 - [ ] 모듈에 CLI 명령 추가 (`#if CLI_USE(HW_xxx)`), cli 로 먼저 시험
 - [ ] 보드 DTS 에 필요한 노드/alias 추가 (핀 하드코딩 금지)
 - [ ] 빌드 / 다운로드 / 디버그 / 콘솔 확인

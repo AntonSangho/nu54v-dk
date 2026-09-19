@@ -28,6 +28,7 @@
 - 레퍼런스 프로젝트 (로컬: 이 저장소와 같은 폴더)
   - https://github.com/chcbaram/nu54dk `firmware/nu54l15-fw` : 이전 nRF54L 보드용 (Zephyr). hw/driver 모듈(button, i2c, spi, sd, fatfs, lcd, i2s, log …)
   - https://github.com/chcbaram/NU87-TinyDK `firmware/nu87-fw` : 더 최신 구조 (uart 가상 채널 `uart_driver_t`, cli, ap 모듈). 같은 모듈이 있으면 이쪽을 먼저 본다
+  - https://github.com/chcbaram/nrf54l15-bd `firmware/*` : nRF54L15 Zephyr 프로젝트 모음 (button/adc/eeprom/lcd, power, **BLE NUS + FOTA**). 단계별 대응은 roadmap.md
 
 ## 진행 상황
 
@@ -71,7 +72,7 @@
 1. **펌웨어 구조와 모듈화는 사용자 방식을 유지한다.**
    `main → hwInit/apInit/apMain`, `ap / hw / hw/driver / bsp / common / common/hw/include` 계층,
    `hw_def.h` 의 `_USE_HW_xxx` / `HW_xxx_MAX_CH` 기능 선택, `xxxInit/xxxOpen…` 명명, `_DEF_xxx` 상수.
-2. **모듈을 추가할 때는 레퍼런스 저장소(NU87-TinyDK → nu54dk 순)의 같은 모듈을 먼저 참조**하고,
+2. **모듈을 추가할 때는 레퍼런스 저장소(NU87-TinyDK → nu54dk 순, nRF54L15 Zephyr 사용법은 nrf54l15-bd)의 같은 모듈을 먼저 참조**하고,
    구조를 유지하면서 이 보드와 저전력에 맞게 더 적절한 형태로 구현한다.
 3. **항상 저전력을 고려한다.**
    바쁜 폴링 대신 sleep/이벤트, 미사용 주변장치는 PM runtime 으로 suspend, 슬립 전 핀 disconnect,
