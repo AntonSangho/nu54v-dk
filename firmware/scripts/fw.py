@@ -283,6 +283,22 @@ def cmd_build(args, cfg, sdk_dir, env):
     return ret
 
 
+# 프로브가 여러 대일 때 어느 것을 쓸지 고른다.
+#
+#   fw flash --probe 5400360300052840a4efca674d33faa2
+#   FW_PROBE=<UID> fw flash
+#
+# UID 는 `pyocd list` 가 보여 준다. 지정하지 않으면 pyOCD 가 번호를 물어보고,
+# 스크립트에서는 입력을 받을 수 없어 실패한다.
+def probe_uid(args):
+    return getattr(args, "probe", None) or os.environ.get("FW_PROBE")
+
+
+def probe_args(args):
+    uid = probe_uid(args)
+    return ["--dev-id", uid] if uid else []
+
+
 def cmd_flash(args, cfg, sdk_dir, env):
     build_dir = args.project / "build"
     if not (build_dir / "build.ninja").exists():
@@ -290,11 +306,16 @@ def cmd_flash(args, cfg, sdk_dir, env):
         ret = cmd_build(args, cfg, sdk_dir, env)
         if ret:
             return ret
-    return run(["west", "flash", "-d", build_dir], env, args.project)
+    cmd = ["west", "flash", "-d", build_dir]
+    cmd += probe_args(args)
+    return run(cmd, env, args.project)
 
 
 def cmd_erase(args, cfg, sdk_dir, env):
-    return run(["pyocd", "erase", "--chip", "-t", cfg["pyocd_target"]], env, args.project)
+    cmd = ["pyocd", "erase", "--chip", "-t", cfg["pyocd_target"]]
+    if probe_uid(args):
+        cmd += ["-u", probe_uid(args)]
+    return run(cmd, env, args.project)
 
 
 def cmd_reset(args, cfg, sdk_dir, env):
@@ -360,6 +381,7 @@ def main():
     parser.add_argument("command", choices=COMMANDS.keys())
     parser.add_argument("-p", "--pristine", action="store_true", help="build: 전체 재빌드")
     parser.add_argument("--project", type=Path, default=Path.cwd(), help="프로젝트 폴더 (기본: 현재 폴더)")
+    parser.add_argument("--probe", help="프로브 UID (여러 대 연결 시. pyocd list 로 확인, 환경변수 FW_PROBE 도 가능)")
     args = parser.parse_args()
     args.project = args.project.resolve()
 

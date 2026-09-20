@@ -123,3 +123,52 @@ launch.json 의 ELF 경로는 `build/${workspaceFolderBasename}/zephyr/zephyr.el
 - `Deprecated symbol NRF_PLATFORM_LUMOS is enabled` : NCS v3.4.1 SDK 자체 경고 (nRF54L 에 기본 켜짐). 무시.
 - `[fw] 경고: 툴체인 cmake 실행 불가 → 임시로 … 사용` : macOS 13 이하 + NCS v3.4.1. 시스템 cmake(`brew install cmake`)나
   다른 툴체인의 cmake 를 대신 쓴다. 빌드 결과는 같다.
+
+## 내장 프로브(DAPLink)가 죽을 때 — 2026-09-20 실측
+
+보드의 디버그 프로브는 **별도 MCU**(nRF52840, `HIC ID 6e052840`)에서 도는
+`NU54DK_v2_Pre-release` DAPLink 펌웨어다. 이것이 죽으면 우리 펌웨어 문제처럼 보인다.
+
+### 구분법 — 먼저 드라이브를 본다
+
+```sh
+cat /Volumes/NU54V2PRE/ASSERT.TXT    # 있으면 프로브 펌웨어가 HardFault 로 죽은 것
+cat /Volumes/NU54V2PRE/DETAILS.TXT   # Target Detect / Target Voltage / Board ID
+```
+
+| 증상 | 원인 |
+|---|---|
+| `ASSERT.TXT` 존재 (`HardFault_Handler.c:67`) | **프로브 펌웨어가 죽었다.** USB 재연결로 복구 |
+| pyOCD `SWD/JTAG communication failure (No ACK)` | 프로브가 죽었거나, SW1 `DISABLE_SWD` ON, 또는 **다른 프로브가 같은 SWD 선을 잡고 있음** |
+| MSD 드래그앤드롭 후 `Last Flash Result: NONE` | 프로그래밍이 시작조차 안 됐다 (아래 참고) |
+| 시리얼·SWD 가 **둘 다** 무응답 | SW1 `DISABLE_SWD`/`DISABLE_UART` 확인 (11_power §4) |
+
+### 확인된 두 가지 문제 (프로브 펌웨어 쪽)
+
+1. **MSD 드라이브에 `.hex` 를 복사하면 즉시 HardFault.** 두 번 재현. 이 경로는 쓰지 않는다.
+2. **`dfu`(SMP 포함) 펌웨어가 돌면 CMSIS-DAP 의 SWD 가 죽는다.**
+   굽는 것까지는 성공하고, 그 펌웨어가 **부팅한 뒤** 접근이 끊긴다 (`Error reading AP#2 IDR: No ACK`).
+   시리얼로 데이터를 보내기 전에 이미 끊기므로 전송과는 무관하다.
+   **타깃 쪽 문제가 아니다** — 같은 상태에서 외부 프로브(NU-DAP)는 정상으로 읽고 굽는다.
+   `led` 와 `dfu` 1단계(SMP 없음)에서는 내장 프로브가 정상이다.
+   → SMP 가 켜지면서 들어온 것(uart30/VCOM0 상시 활성화, IMG_MANAGER 등) 중 무엇이 방아쇠인지는 아직 미분리.
+
+### 프로브가 여러 대일 때
+
+pyOCD 가 번호를 물어보다 스크립트에서 실패한다(`EOF when reading a line`). UID 로 지정한다.
+
+```sh
+pyocd list                                   # UID 확인
+../../scripts/fw flash --probe <UID>
+FW_PROBE=<UID> ../../scripts/fw flash        # 환경변수도 가능
+```
+
+**두 프로브의 SWD 를 동시에 물리면 버스가 충돌한다.** 한쪽만 연결한다.
+
+### 프로브 펌웨어 업데이트 경로
+
+1. **MAINTENANCE 모드** — 프로브 리셋을 누른 채 USB 연결 → `MAINTENANCE` 드라이브에 `*_if.hex` 복사 (부트로더가 처리하므로 인터페이스 펌웨어가 죽어 있어도 된다)
+2. 평상시 드라이브에 `_if.hex` 복사 — **지금 펌웨어는 hex 복사에서 죽으므로 쓸 수 없다**
+3. nRF52840 의 SWD 에 직접 (확실한 경로)
+
+펌웨어 이미지는 nuworks.io 쪽에서 받는다 (드라이브의 `NU54DK.HTM` 이 그리로 간다).
