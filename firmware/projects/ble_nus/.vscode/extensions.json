@@ -1,0 +1,7 @@
+{
+  "recommendations": [
+    "marus25.cortex-debug",
+    "ms-vscode.cpptools",
+    "nordic-semiconductor.nrf-connect-extension-pack"
+  ]
+}

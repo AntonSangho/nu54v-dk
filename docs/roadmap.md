@@ -37,7 +37,7 @@
 | 13 | `pmic` | BQ25186 충전기: 상태·이상·설정 읽기, 충전 전류 설정, /CE 제어, `/INT` 이벤트 | I2C 0x6A, P1.11 INT, P2.08 PG, P2.10 CE | (신규, Arduino pmic 예제 참고) | 폴링 없이 /INT 인터럽트 | ✅ |
 | 14 | `nvs` | 설정 저장 (Zephyr Settings + ZMS, storage 파티션), `nvs` CLI | RRAM `storage_partition` | nvs (NU87 API), qmk-zephyr (쓰기 합치기) | 값이 바뀔 때만 쓰기, 잦으면 모아서 | ✅ |
 | 15 | `rtc` | 날짜·시계 (기준 epoch + GRTC, 보존 RAM), 시간대(nvs), log 타임스탬프, `rtc` CLI | GRTC, 보존 RAM 4 KB | rtc (NU87 API) | 틱 없음, System OFF 에서도 시각 유지 | ✅ |
-| 16 | `ble_nus` | **BLE NUS 를 uart 가상 채널로 추가 → baram-term 과 통신**. `_USE_HW_BLE` 로 끄고 켤 수 있게 (끄면 BLE 코드·Kconfig 전부 빠짐) | RADIO | uart(`uartSetDriver`), cli, nrf54l15-bd `nrf54l-fw-fota` | 광고/연결 간격, TX 전력 | |
+| 16 | `ble_nus` | BLE 스택/역할/서비스 3층, NUS 를 uart 가상 채널로 → cli 가 BLE 에서 동작 | RADIO | uart(`uartSetDriver`), cli_mgr (NU87) | 수신 콜백 → 알림, 광고/연결 간격은 17 | ✅ |
 | 17 | `ble_power` | BLE 저전력 튜닝: 광고 주기, 연결 파라미터, 슬레이브 레이턴시 | RADIO | | 광고/연결 상태별 평균 전류 표 | |
 | 18 | `dfu` | MCUboot + SMP 로 펌웨어 업데이트 (UART / BLE) | slot0/slot1 파티션 | loader, ymodem | 부트로더 크기와 부팅 시간 | |
 | 19 | `app` | 위 모듈을 합친 기본 펌웨어 (cli + ble_nus + 센서 + 전원 관리) | 전체 | ap/system | 동작 모드별 전류 | |

@@ -1,0 +1,47 @@
+{
+  // cortex-debug + pyOCD (보드 내장 CMSIS-DAP)
+  // gdb/pyocd/svd 경로는 fw 스크립트가 빌드할 때 firmware/.tools 에 링크로 만든다.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug (pyOCD)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "executable": "${workspaceFolder}/build/${workspaceFolderBasename}/zephyr/zephyr.elf",
+      "servertype": "pyocd",
+      "serverpath": "${workspaceFolder}/../../.tools/pyocd/pyocd",
+      "gdbPath": "${workspaceFolder}/../../.tools/gdb/arm-zephyr-eabi-gdb",
+      "windows": {
+        "serverpath": "${workspaceFolder}/../../.tools/pyocd/pyocd.exe",
+        "gdbPath": "${workspaceFolder}/../../.tools/gdb/arm-zephyr-eabi-gdb.exe"
+      },
+      "targetId": "nrf54l",
+      "serverArgs": ["--frequency", "4000000",
+        "--script", "${workspaceFolder}/../../scripts/pyocd_cortex_debug.py"],
+      "svdFile": "${workspaceFolder}/../../.tools/svd/nrf54l15_application.svd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "Build",
+      "showDevDebugOutput": "none"
+    },
+    {
+      "name": "Attach (pyOCD)",
+      "type": "cortex-debug",
+      "request": "attach",
+      "cwd": "${workspaceFolder}",
+      "executable": "${workspaceFolder}/build/${workspaceFolderBasename}/zephyr/zephyr.elf",
+      "servertype": "pyocd",
+      "serverpath": "${workspaceFolder}/../../.tools/pyocd/pyocd",
+      "gdbPath": "${workspaceFolder}/../../.tools/gdb/arm-zephyr-eabi-gdb",
+      "windows": {
+        "serverpath": "${workspaceFolder}/../../.tools/pyocd/pyocd.exe",
+        "gdbPath": "${workspaceFolder}/../../.tools/gdb/arm-zephyr-eabi-gdb.exe"
+      },
+      "targetId": "nrf54l",
+      "serverArgs": ["--frequency", "4000000",
+        "--script", "${workspaceFolder}/../../scripts/pyocd_cortex_debug.py"],
+      "svdFile": "${workspaceFolder}/../../.tools/svd/nrf54l15_application.svd",
+      "showDevDebugOutput": "none"
+    }
+  ]
+}

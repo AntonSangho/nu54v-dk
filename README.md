@@ -55,6 +55,7 @@ NUCODE NU54-DK (nRF54L15) 보드 브링업 펌웨어.
 | 13 | `pmic` | 배터리 충전기 BQ25186 |
 | 14 | `nvs` | 설정 저장 (Settings + ZMS) |
 | 15 | `rtc` | 날짜·시계, 로그 타임스탬프 |
+| 16 | `ble_nus` | BLE NUS — cli 를 BLE 로 |
 
 앞으로의 계획: [docs/roadmap.md](docs/roadmap.md)
 
