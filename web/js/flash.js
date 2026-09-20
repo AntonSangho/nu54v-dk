@@ -112,6 +112,34 @@ function toPages(chunks, pageSize) {
  * 그런데 타깃을 리셋하면 하드웨어의 DP/AP 레지스터는 초기화되는데 캐시는 남는다.
  * 그러면 이후 전송이 엉뚱한 AP·뱅크로 가서 FAULT 가 난다. connect() 도 이것을 지우지 않는다.
  */
+/*
+ * dapjs 의 writeBlock 은 256 워드(1024 바이트)까지만 제대로 쓴다.
+ *
+ * 그보다 크면 안에서 여러 번 나눠 보내는데 **주소를 진행시키지 않아** 덩어리들이
+ * 모두 같은 자리에 겹쳐 쓰인다 (마지막 덩어리만 남는다). 실측으로 확인했다:
+ *   1024 워드를 쓰면 0 번째 자리에 768 번째 값이 들어온다.
+ * readBlock 도 같은 제한이 있을 수 있으므로 같은 크기로 나눈다.
+ */
+const DAP_BLOCK_WORDS = 256;
+
+async function writeBlockChunked(target, address, words) {
+  for (let i = 0; i < words.length; i += DAP_BLOCK_WORDS) {
+    const chunk = words.subarray(i, Math.min(i + DAP_BLOCK_WORDS, words.length));
+    await target.writeBlock(address + i * 4, chunk);
+  }
+}
+
+async function readBlockChunked(target, address, count) {
+  const out = new Uint32Array(count);
+  for (let i = 0; i < count; i += DAP_BLOCK_WORDS) {
+    const n = Math.min(DAP_BLOCK_WORDS, count - i);
+    const chunk = await target.readBlock(address + i * 4, n);
+    out.set(chunk.subarray ? chunk.subarray(0, n) : chunk.slice(0, n), i);
+  }
+  return out;
+}
+
+
 function invalidateDapCache(target) {
   target.selectedAddress = undefined;
   target.cswValue = undefined;
@@ -208,7 +236,7 @@ class Flasher {
 
   /* 알고리즘을 타깃 RAM 에 올린다 (한 번만) */
   async loadAlgo() {
-    await this.target.writeBlock(FLASH_ALGO.loadAddress, FLASH_ALGO.instructions);
+    await writeBlockChunked(this.target, FLASH_ALGO.loadAddress, FLASH_ALGO.instructions);
   }
 
   /*
@@ -263,7 +291,7 @@ class Flasher {
   async programPage(address, data) {
     // 데이터를 먼저 RAM 버퍼에 올린다 (워드 단위)
     const words = new Uint32Array(data.buffer, data.byteOffset, data.length / 4);
-    await this.target.writeBlock(FLASH_ALGO.dataBuffer, words);
+    await writeBlockChunked(this.target, FLASH_ALGO.dataBuffer, words);
 
     const ret = await this.call(
       FLASH_ALGO.pcProgramPage, address, data.length, FLASH_ALGO.dataBuffer);
@@ -279,7 +307,7 @@ class Flasher {
   async verify(pages) {
     for (const page of pages) {
       const expect = new Uint32Array(page.data.buffer, page.data.byteOffset, 4);
-      const actual = await this.target.readBlock(page.address, 4);
+      const actual = await readBlockChunked(this.target, page.address, 4);
 
       for (let i = 0; i < 4; i++) {
         if ((actual[i] >>> 0) !== (expect[i] >>> 0)) {

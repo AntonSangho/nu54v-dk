@@ -192,6 +192,31 @@ GitHub Pages 가 HTTPS 라 세 API 모두의 요구 조건을 만족한다. 사�
 되는 브라우저 : WebUSB·Web Serial 은 Chrome / Edge 데스크톱 (WebUSB 는 Android 도), Web Bluetooth 는 여기에 Opera 추가.
 **Safari · Firefox · iOS 는 전부 안 된다.**
 
+#### dapjs 의 버그 세 가지 (2026-09-20 실측)
+
+브라우저에서만 실패하고 pyOCD 로 같은 순서를 재현하면 잘 되어서, Node 에서 dapjs 를
+그대로 돌려 좁혔다 (`usb` 패키지의 WebUSB 폴리필 → 브라우저와 같은 경로).
+
+| 문제 | 증상 | 우회 |
+|---|---|---|
+| **`writeBlock` 이 256 워드까지만 맞다** | 그보다 크면 안에서 나눠 보내며 **주소를 진행시키지 않아** 덩어리가 모두 같은 자리에 겹쳐 쓰인다. 1024 워드를 쓰면 0 번째 자리에 768 번째 값이 들어온다 | 256 워드씩 나눠 쓴다 |
+| `waitDelay(fn, timeout, interval)` | interval 이 아니라 timeout 만큼 잠든다. 알고리즘 호출 한 번에 최대 10 초 | `execute()` 를 쓰지 않고 직접 폴링 (2 ms) |
+| `SELECT` / `CSW` 캐시 | 타깃을 리셋하면 하드웨어는 초기화되는데 캐시가 남아 이후 전송이 엉뚱한 AP·뱅크로 간다. `connect()` 도 지우지 않는다 | 리셋할 때마다 `selectedAddress`/`cswValue` 를 버린다 |
+
+첫 번째가 결정적이었다. 굽기는 "성공" 하는데 내용이 쓰레기라, MCUboot 가 부팅할 이미지를
+못 찾고 멈추고 → APPROTECT 가 걸린 채 남아 → 디버그 접근까지 막혔다.
+
+#### APPROTECT 와 디버그 접근
+
+**AHB-AP 가 비활성이면 APPROTECT 가 걸린 것이다.** nRF54L 은 리셋할 때 걸린 채 부팅하고,
+정상 펌웨어가 돌면서 해제한다. 그래서 펌웨어가 돌지 않으면(패닉, 이미지 없음, 코어 halt)
+디버그가 막힌다. 빠져나오려면 CTRL-AP 전체 삭제뿐이다.
+
+- MCUboot 만 굽지 않는다 → `build/merged.hex` 를 쓴다
+- 굽기 뒤에는 코어를 halt 로 두지 않는다. 먼저 `C_HALT` 를 풀고 리셋한다
+  (halt 상태에서 `C_DEBUGEN` 을 0 으로 쓰면 ARM 사양상 동작 미정의)
+- 리셋은 **CTRL-AP RESET 에 2 → 0** (pyOCD 와 같다). `AIRCR.SYSRESETREQ` 가 아니다
+
 #### SWD (WebUSB) 가 되는 이유
 
 - 보드의 프로브가 WebUSB 를 내놓는다 : `DETAILS.TXT` → `USB Interfaces: MSD, CDC, HID, WebUSB`.
