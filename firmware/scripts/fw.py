@@ -6,6 +6,7 @@ nRF Connect 터미널이나 전역 PATH 설정 없이 어느 셸에서든 동작
 
   fw build [-p]      빌드 (-p : pristine 전체 재빌드)
   fw flash           다운로드 (빌드가 없으면 먼저 빌드)
+  fw dfu             SMP 로 업데이트 (시리얼/BLE). MCUboot 를 쓰는 프로젝트만
   fw erase           칩 전체 삭제
   fw reset           타깃 리셋
   fw clean           build 폴더 삭제
@@ -311,6 +312,53 @@ def cmd_flash(args, cfg, sdk_dir, env):
     return run(cmd, env, args.project)
 
 
+# SMP 업데이트용 파이썬 환경.
+#
+# smpclient 를 SDK 툴체인에 설치하면 공용 환경이 더러워진다. firmware/.tools 아래에
+# 따로 venv 를 만든다 (.tools 는 .gitignore 에 있다). 처음 한 번만 설치한다.
+def dfu_venv_python():
+    venv_dir = TOOLS_DIR / "venv"
+    python = venv_dir / ("Scripts/python.exe" if IS_WINDOWS else "bin/python")
+
+    if python.exists():
+        return python
+
+    log(f"SMP 도구 환경을 만든다 : {venv_dir}")
+    TOOLS_DIR.mkdir(exist_ok=True)
+    base = shutil.which("python3") or shutil.which("python") or sys.executable
+    if subprocess.call([base, "-m", "venv", str(venv_dir)]) != 0:
+        die("venv 생성 실패")
+    log("smpclient 설치 중 (처음 한 번)")
+    if subprocess.call([str(python), "-m", "pip", "install", "--quiet",
+                        "smpclient[ble,serial]"]) != 0:
+        die("smpclient 설치 실패")
+    return python
+
+
+def cmd_dfu(args, cfg, sdk_dir, env):
+    build_dir = args.project / "build"
+    if not (build_dir / "build.ninja").exists():
+        args.pristine = False
+        ret = cmd_build(args, cfg, sdk_dir, env)
+        if ret:
+            return ret
+
+    image = default_image(build_dir) / "zephyr" / "zephyr.signed.bin"
+    if not image.exists():
+        die(f"서명된 이미지가 없다: {image}\n       MCUboot 를 쓰는 프로젝트인지 확인해라 (sysbuild.conf)")
+
+    cmd = [str(dfu_venv_python()), str(Path(__file__).resolve().parent / "dfu_update.py"),
+           "--image", str(image), "--transport", args.transport]
+    if args.port:
+        cmd += ["--port", args.port]
+    if args.ble_name:
+        cmd += ["--name", args.ble_name]
+    if args.no_confirm:
+        cmd += ["--no-confirm"]
+
+    return run(cmd, env, args.project)
+
+
 def cmd_erase(args, cfg, sdk_dir, env):
     cmd = ["pyocd", "erase", "--chip", "-t", cfg["pyocd_target"]]
     if probe_uid(args):
@@ -365,6 +413,7 @@ def cmd_shell(args, cfg, sdk_dir, env):
 COMMANDS = {
     "build": cmd_build,
     "flash": cmd_flash,
+    "dfu": cmd_dfu,
     "erase": cmd_erase,
     "reset": cmd_reset,
     "clean": cmd_clean,
@@ -381,6 +430,11 @@ def main():
     parser.add_argument("command", choices=COMMANDS.keys())
     parser.add_argument("-p", "--pristine", action="store_true", help="build: 전체 재빌드")
     parser.add_argument("--project", type=Path, default=Path.cwd(), help="프로젝트 폴더 (기본: 현재 폴더)")
+    parser.add_argument("--transport", choices=["serial", "ble"], default="serial",
+                        help="dfu: 업데이트 경로 (기본 serial)")
+    parser.add_argument("--port", help="dfu: 시리얼 포트 (없으면 자동 탐색)")
+    parser.add_argument("--ble-name", help="dfu: BLE 장치 이름 (기본 NU54V-DK)")
+    parser.add_argument("--no-confirm", action="store_true", help="dfu: 확정하지 않는다")
     parser.add_argument("--probe", help="프로브 UID (여러 대 연결 시. pyocd list 로 확인, 환경변수 FW_PROBE 도 가능)")
     args = parser.parse_args()
     args.project = args.project.resolve()

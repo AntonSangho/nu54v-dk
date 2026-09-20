@@ -36,6 +36,20 @@
       "problemMatcher": []
     },
     {
+      "label": "DFU (serial)",
+      "detail": "cli 포트(VCOM1)로 업로드 → test → 리셋 → confirm. baram-term 등 그 포트를 쓰는 프로그램은 먼저 닫아야 한다",
+      "args": ["dfu"],
+      "dependsOn": "Build",
+      "problemMatcher": []
+    },
+    {
+      "label": "DFU (BLE)",
+      "detail": "BLE 로 업로드 → test → 리셋 → confirm. 다른 프로그램이 BLE 로 연결 중이면 먼저 끊어야 한다",
+      "args": ["dfu", "--transport", "ble"],
+      "dependsOn": "Build",
+      "problemMatcher": []
+    },
+    {
       "label": "Erase chip",
       "args": ["erase"],
       "problemMatcher": []
