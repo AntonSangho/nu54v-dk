@@ -91,6 +91,7 @@
 | 전원 | DC/DC 끔(LDO) | 모듈 인덕터 유무 미확인 — 안전한 쪽 |
 | UART | Zephyr async(DMA) API 를 uart 모듈에서 직접 사용 (console 서브시스템 X) | 수신 스레드 없음, RX 끄면 UARTE suspend, TX 중 CPU sleep ([05_uart](05_uart.md)) |
 | 예제 시험 방식 | 모듈마다 CLI 명령, ap 에 시험 코드 넣지 않음 | 사용자 요청 |
+| UART 하드웨어 흐름제어(RTS/CTS) | **쓰지 않는다** | 사용자 결정. 보드 DTS 에 핀(SB9~SB12)은 잡혀 있으나 `hw-flow-control` 을 켜지 않는다. CTS 가 `bias-pull-up` 이라 프로브가 구동하지 않으면 보드 TX 가 막힌다 |
 
 ## 작업 규칙
 
