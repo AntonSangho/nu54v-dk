@@ -46,6 +46,7 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-20 | **웹 DFU 디버깅** ([18_dfu.md](18_dfu.md) §4 함정 7, §9) : BLE 가 붙으면 시리얼 SMP 왕복이 30 ms → **1001 ms** 가 되던 것을 잡았다. `cli_mgr` 이 BLE 로 채널을 넘긴 뒤 **그 채널의 세마포어만** 기다려, 시리얼로 온 요청이 cli 스레드를 못 깨우고 `CLI_MGR_IDLE_WAIT_MS` 를 통째로 쓴 것. 계층을 나눠 고쳤다 — uart 는 알림 훅만(`uartSetRxNotify`), cli 는 `cliFilterPump(ch)` 로 **지정 채널**을 필터에 물리고, 중재는 cli_mgr 이 한다. **SMP 는 cli 의 채널 선택과 무관하게 자기 포트에서 돈다.** 웹 쪽도 셋 고침 (표식이 줄 중간에 와도 찾기 / cli 엔터는 CR / rc 거절은 재전송 안 함). 측정 도구 `scripts/dfu_serial_bench.py` 추가 |
 | 2026-09-20 | `projects/dfu` **완료** : MCUboot(0x0, 56 KB) + 앱 slot0(0x10000), ED25519 서명(키 저장소 포함). SMP 를 BLE 와 **cli 포트(VCOM1)** 양쪽에. 시리얼 SMP 는 Zephyr 의 UART 전송 대신 우리 uart 모듈 위에 직접 얹었다 (cli 는 필터 훅만 제공 — dfu 를 모른다). `dfu` CLI, `fw dfu` + VS Code 태스크. BLE 249 KB/15.8초, 시리얼 249 KB/44초 왕복 확인 |
 | 2026-09-20 | **내장 프로브(DAPLink) 결함**: VCOM0 를 쓰면 같은 프로브의 SWD 가 죽는다. 원인 분리 후 제조사 보고서 작성 ([reports/2026-09-20_daplink_vcom0_swd.md](reports/2026-09-20_daplink_vcom0_swd.md)). 그래서 시리얼 SMP 를 VCOM1 로 옮겼다 |
 | 2026-09-20 | `projects/ble_nus` : BLE 스택/역할/서비스 3층 구조, NUS 를 uart 가상 채널로 붙여 cli 가 BLE 에서 동작. 호스트(bleak)로 스캔·연결·명령 확인. baram-term 은 BLE 미지원 → socket 다리 필요 (사용자 결정) |

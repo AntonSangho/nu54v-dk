@@ -196,6 +196,42 @@ BUILD_ASSERT(IS_ENABLED(CONFIG_UART_20_ASYNC),
 > 디버깅 요령 : `r14/lr` 을 `arm-zephyr-eabi-addr2line -f -e build/<app>/zephyr/zephyr.elf <주소>` 로 풀면
 > 누가 NULL 을 불렀는지 바로 나온다.
 
+### 함정 7 — BLE 가 붙으면 시리얼 SMP 가 33 배 느려진다
+
+`cli_mgr` 은 BLE(NUS)가 붙으면 cli 를 그 채널로 넘긴다. 그리고 입력을 기다릴 때
+**그 채널 하나의 세마포어만** 봤다.
+
+```c
+if (bleNusIsReady()) cli_ch = HW_UART_CH_BLE;
+...
+if (cliAvailable() == 0) uartWaitRx(cli_ch, CLI_MGR_IDLE_WAIT_MS);   // ← BLE 채널만 기다린다
+```
+
+시리얼로 온 SMP 요청은 BLE 채널을 깨우지 못한다. cli 스레드는 타임아웃이 날 때까지 자고,
+그동안 요청은 UART 큐에 그대로 있다. **왕복마다 `CLI_MGR_IDLE_WAIT_MS` 가 통째로 붙는다.**
+
+| | BLE 끊김 | BLE 연결 (고치기 전) | BLE 연결 (고친 뒤) |
+|---|---|---|---|
+| `image list` 왕복 | 30 ms | **1001 ms** | 29 ms |
+| 업로드 | 4.9 KB/s | **0.20 KB/s** | 5.33 KB/s |
+
+증상이 고약한 이유는 **BLE 를 한 번 연결한 뒤부터만** 나타나서, 시리얼 쪽 코드를 아무리 봐도
+원인이 없다는 점이다. 보드 안에서 쓴 시간은 1 ms 였다 (`dfu info` 의 `serial.time`).
+
+고친 방식은 계층을 나눴다.
+
+| 계층 | 역할 |
+|---|---|
+| `uart.c` | 정책을 모른다. 수신 알림 훅만 준다 (`uartSetRxNotify`) |
+| `cli.c` | `cliFilterPump(ch)` — **지정한 채널**을 필터로 비운다. 필터가 안 가져간 바이트는 남겨 `cliMain()` 이 처리 |
+| `cli_mgr.c` | 중재를 여기서. 자기 세마포어로 어느 채널이든 깨어나고, cli 가 BLE 에 있어도 로컬 포트를 계속 비운다 |
+
+핵심은 **SMP 는 특정 포트에 묶여 있고 cli 의 채널 선택과 무관해야 한다**는 것이다.
+필터가 가져간 바이트는 cli 채널을 옮기지 않고, 필터가 거절한 바이트(= 사람이 친 입력)일 때만 옮긴다.
+
+> 이런 종류는 코드만 봐서는 안 잡힌다. `firmware/scripts/dfu_serial_bench.py` 로
+> 브라우저 없이 왕복을 재는 것이 결정적이었다 (§9).
+
 ## 5. 1단계 검증 결과 (2026-09-20, NCS v3.4.1)
 
 - [x] MCUboot 가 `boot_partition`(0x0)에, 앱이 `slot0`(0x10000)에 링크
@@ -411,6 +447,37 @@ VS Code 태스크 (모두 빌드를 먼저 한다)
 > SMP 응답을 나눠 가진다. baram-term 이면 `baram-ctl release` → 업데이트 → `baram-ctl resume`.
 
 실측 : 시리얼 249 KB / 44 초, BLE 249 KB / 15.8 초.
+
+### 시리얼이 느릴 때 — 먼저 재고 고친다
+
+`firmware/scripts/dfu_serial_bench.py` 는 웹페이지(`web/js/serial.js`)와 **같은 프레이밍**으로
+브라우저 없이 왕복을 잰다. "브라우저 탓인가 보드 탓인가" 를 한 번에 가른다.
+
+```sh
+python3 scripts/dfu_serial_bench.py ping -n 40             # 플래시를 안 건드리는 순수 왕복
+python3 scripts/dfu_serial_bench.py upload <파일> -n 150   # 조각 150 개만 올려 분포를 본다
+python3 scripts/dfu_serial_bench.py cli "dfu info"         # 보드 계수기
+```
+
+읽는 법 (실측 기준값, 115200 baud · 조각 200 바이트)
+
+| 조각 왕복 | 뜻 |
+|---|---|
+| **30~45 ms** | 정상. 요청 325 B + 응답 35 B 를 선에 싣는 물리 시간이다 |
+| **1000 ms 배수** | 타임아웃이다. 지연이 아니라 누가 자고 있다 (§4 함정 7) |
+| **평균은 작고 최대만 3200 ms** | 호스트 재전송이다. 조각이 유실되고 있다 |
+
+보드 쪽은 `dfu info` 가 구간을 나눠 준다.
+
+```
+serial.pkt    : rx 1666, tx 1666, err 0
+serial.frag   : 4820, drop 0        ← drop 이 오르면 줄은 왔는데 패킷이 안 됐다
+serial.time   : rx 22/28 ms, proc 4/3057 ms   (평균/최대)
+```
+
+`rx` 와 `proc` 이 둘 다 작은데 호스트 왕복이 크면 **지연은 보드가 첫 바이트를 꺼내기 전**에 있다.
+`uart info` 의 `rx drop` / `rx stop` 이 0 이면 바이트를 잃은 것도 아니다 — 그러면 남는 것은
+cli 스레드가 깨어나지 못한 경우뿐이다.
 
 ## 9. 호스트 도구
 
