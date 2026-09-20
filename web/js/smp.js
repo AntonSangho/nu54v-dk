@@ -351,8 +351,18 @@ class SmpClient {
     let markPct = 0;
     const t0 = performance.now();
 
+    // 첫 요청만 len 과 sha(32 바이트)를 같이 실어 패킷이 약 75 바이트 커진다.
+    //
+    // BLE 는 패킷 하나가 한 번의 write 에 들어가야 하고 MTU(244)에 묶인다.
+    // 조각 200 이면 평소 패킷은 223 바이트로 들어가지만 첫 패킷은 275 가 되어
+    // 넘친다. 브라우저가 잘라 보내면 보드는 불완전한 패킷을 기다리기만 하고
+    // 응답이 오지 않는다 (첫 조각에서만 멈추는 증상).
+    // 그래서 첫 조각만 그만큼 줄인다. 한 번뿐이라 속도에 영향이 없다.
+    const firstChunk = Math.max(64, chunkSize - 96);
+
     while (off < image.length) {
-      const end = Math.min(off + chunkSize, image.length);
+      const size = (off === 0) ? firstChunk : chunkSize;
+      const end = Math.min(off + size, image.length);
       const payload = { image: 1, off, data: image.subarray(off, end) };
       if (off === 0) {
         payload.len = image.length;
