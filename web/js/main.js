@@ -522,6 +522,12 @@ async function serUpload() {
     log(`업로드 완료 : ${sec.toFixed(1)} 초, ${(stat.sent / 1024).toFixed(0)} KB 전송 `
       + `(${(stat.sent / 1024 / sec).toFixed(1)} KB/s)`, "ok");
 
+    // 한 번 돌린 뒤 어디서 잃었는지 보기 위한 집계
+    const c = serTransport.stats();
+    log(`시리얼 집계 : 패킷 ${c.packets}, 수신 ${(c.rxBytes / 1024).toFixed(0)} KB, `
+      + `줄 ${c.rxLines} (시작 ${c.markPkt} / 이어짐 ${c.markFrag}), `
+      + `앞줄 잃음 ${c.orphanFrag}, base64 오류 ${c.badB64}, CRC 오류 ${c.crcErr}`);
+
     const images = await showSerState();
     const target = images.find((i) => i.slot === 1);
     if (!target) throw new Error("slot1 에 이미지가 없다");

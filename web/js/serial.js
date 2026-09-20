@@ -68,6 +68,31 @@ class SerialSmpTransport {
     this.line = "";           // 받는 중인 한 줄
     this.b64 = "";            // 이어 붙이는 중인 base64 문자열
     this.bodyLen = -1;        // 아직 모름
+
+    // 어디서 잃는지 가르기 위한 계수기.
+    //
+    // 응답이 안 왔을 때 "보드가 답을 안 했다" 와 "답이 왔는데 우리가 놓쳤다" 는
+    // 원인이 전혀 다르다. rxBytes 가 그대로면 앞이고, 늘었는데 패킷이 안 되면 뒤다.
+    this.cnt = {
+      rxBytes: 0,        // 포트에서 읽은 전체 바이트
+      rxLines: 0,        // 줄 끝(\n)을 본 횟수
+      markPkt: 0,        // 0x06 0x09 로 시작한 줄
+      markFrag: 0,       // 0x04 0x14 로 이어진 줄
+      orphanFrag: 0,     // 시작을 못 본 채 온 이어짐 → 앞줄을 잃었다는 증거
+      badB64: 0,         // base64 해독 실패
+      crcErr: 0,         // CRC 불일치
+      packets: 0,        // 온전히 모은 패킷
+    };
+  }
+
+  /* 지금까지의 계수기와 아직 모으는 중인 것 (스냅샷) */
+  stats() {
+    return {
+      ...this.cnt,
+      partialLine: this.line.length,
+      partialB64: this.b64.length,
+      bodyLen: this.bodyLen,
+    };
   }
 
   get isConnected() {
@@ -116,11 +141,14 @@ class SerialSmpTransport {
    * cli 출력이 섞여 오므로 표식으로 시작하는 줄만 본다.
    */
   receive(chunk) {
+    this.cnt.rxBytes += chunk.length;
+
     // 바이트마다 문자열을 붙이면 느리다. 줄 단위로 잘라서 한 번에 붙인다.
     let start = 0;
     for (let i = 0; i < chunk.length; i++) {
       if (chunk[i] !== 0x0a) continue;        // 줄 끝을 찾는다
 
+      this.cnt.rxLines++;
       this.line += latin1(chunk.subarray(start, i));
       this.handleLine(this.line);
       this.line = "";
@@ -136,10 +164,15 @@ class SerialSmpTransport {
     const c1 = line.charCodeAt(1);
 
     if (c0 === SERIAL_MARK_PKT[0] && c1 === SERIAL_MARK_PKT[1]) {
+      this.cnt.markPkt++;
       this.b64 = line.slice(2);               // 새 패킷의 시작
       this.bodyLen = -1;
     } else if (c0 === SERIAL_MARK_FRAG[0] && c1 === SERIAL_MARK_FRAG[1]) {
-      if (this.b64 === "") return;            // 시작을 못 본 이어짐은 버린다
+      this.cnt.markFrag++;
+      if (this.b64 === "") {                  // 시작을 못 본 이어짐은 버린다
+        this.cnt.orphanFrag++;
+        return;
+      }
       this.b64 += line.slice(2);
     } else {
       return;                                 // cli 출력이다. 무시한다
@@ -153,6 +186,7 @@ class SerialSmpTransport {
     try {
       bytes = fromBase64(aligned);
     } catch (e) {
+      this.cnt.badB64++;
       this.b64 = "";
       return;
     }
@@ -171,9 +205,11 @@ class SerialSmpTransport {
     this.bodyLen = -1;
 
     if (crc16(packet) !== crc) {
+      this.cnt.crcErr++;
       this.log("시리얼 : CRC 가 맞지 않는다");
       return;
     }
+    this.cnt.packets++;
     if (this.onPacket) this.onPacket(packet);
   }
 

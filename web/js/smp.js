@@ -210,8 +210,9 @@ class SmpClient {
     transport.onPacket = (pkt) => {
       if (this.pending === null) return;
       const rsp = smpParse(pkt);
-      const { resolve, reject, seq } = this.pending;
+      const { resolve, reject, seq, timer } = this.pending;
       if (rsp.seq !== seq) return;                 // 늦게 온 응답은 버린다
+      clearTimeout(timer);                         // 남겨 두면 seq 가 한 바퀴 돌 때 오발한다
       this.pending = null;
       if (rsp.payload.rc !== undefined && rsp.payload.rc !== 0) {
         const rc = rsp.payload.rc;
@@ -226,20 +227,44 @@ class SmpClient {
     };
   }
 
+  /*
+   * 응답이 안 왔을 때 그 사이 무엇이 들어왔는지 한 줄로 만든다.
+   *
+   * 수신 0 B  → 보드가 답을 안 했다 (보드가 요청을 놓쳤거나 처리 중 멈췄다)
+   * 수신 있음 → 답은 왔는데 패킷이 못 됐다. 뒤의 숫자가 어디서 깨졌는지 말해 준다
+   */
+  static describeGap(before, after) {
+    if (!before || !after) return "";
+
+    const d = (k) => after[k] - before[k];
+    const bits = [`수신 ${d("rxBytes")} B`];
+
+    if (d("rxLines")) bits.push(`${d("rxLines")} 줄`);
+    if (d("orphanFrag")) bits.push(`앞줄 잃음 ${d("orphanFrag")}`);
+    if (d("badB64")) bits.push(`base64 오류 ${d("badB64")}`);
+    if (d("crcErr")) bits.push(`CRC 오류 ${d("crcErr")}`);
+    if (after.partialB64) bits.push(`모으는 중 ${after.partialB64} 글자`);
+    if (after.partialLine) bits.push(`줄 끝 못 봄 ${after.partialLine} 글자`);
+
+    return ` [${bits.join(", ")}]`;
+  }
+
   async request(op, group, id, payload = {}, timeoutMs = 10000) {
     if (this.pending) throw new Error("앞선 요청이 끝나지 않았다");
 
     const seq = this.seq++ & 0xff;
     const pkt = smpRequest(op, group, id, payload, seq);
+    const stats = this.transport.stats ? this.transport.stats.bind(this.transport) : null;
+    const before = stats ? stats() : null;
 
     const result = new Promise((resolve, reject) => {
-      this.pending = { resolve, reject, seq };
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (this.pending && this.pending.seq === seq) {
           this.pending = null;
-          reject(new Error("응답이 오지 않는다"));
+          reject(new Error("응답이 오지 않는다" + SmpClient.describeGap(before, stats && stats())));
         }
       }, timeoutMs);
+      this.pending = { resolve, reject, seq, timer };
     });
 
     await this.transport.send(pkt);
