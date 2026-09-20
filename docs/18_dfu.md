@@ -141,6 +141,21 @@ board_runner_args(pyocd "--dt-flash=n")
 > 링크 자체는 정상이다. 확인하려면 `build/dfu/zephyr/zephyr.map` 의 `FLASH 0x00010000` 과
 > `rom_start 0x00010000` 를 본다.
 
+### 함정 5 — 디버깅할 때 서명 전 elf 를 굽지 않게 한다
+
+cortex-debug 는 `executable` 로 준 `zephyr.elf` 를 타깃에 **그대로 로드**한다.
+그런데 그 elf 는 **서명 전** 이미지다 (MCUboot 헤더 자리가 비어 있다).
+그대로 F5 를 누르면 slot0 에 서명 없는 이미지가 들어가고, MCUboot 가 검증에 실패해 앱으로 점프하지 않는다.
+
+`.vscode/launch.json` 에서 굽는 일을 cortex-debug 에 맡기지 않는다.
+
+```jsonc
+"loadFiles": [],              // cortex-debug 는 아무것도 굽지 않는다
+"preLaunchTask": "Flash",     // fw flash 가 MCUboot + 서명된 앱을 굽는다 (빌드도 같이 한다)
+```
+
+`executable` 의 elf 는 **심볼용으로만** 쓴다. 주소가 slot0(0x10000)라 심볼은 그대로 맞는다.
+
 ## 5. 1단계 검증 결과 (2026-09-20, NCS v3.4.1)
 
 - [x] MCUboot 가 `boot_partition`(0x0)에, 앱이 `slot0`(0x10000)에 링크
@@ -149,7 +164,8 @@ board_runner_args(pyocd "--dt-flash=n")
 - [x] MCUboot → 앱 부팅, 모든 모듈 init OK (i2c/shtc3/nvs/rtc/ble/pmic/adc/temp/module)
 - [x] **보존 RAM 살아남음** — MCUboot 를 거쳐도 rtc 시각이 유지된다 (MCUboot 도 같은 보드 DTS 를 쓴다)
 - [x] `storage_partition` 그대로 → nvs 값과 BLE 본드 유지
-- [ ] VS Code 디버깅 (`launch.json` 은 `${workspaceFolderBasename}` 을 쓰므로 경로는 맞는다. 실기 확인 필요)
+- [x] 디버깅 : 리셋 → MCUboot → 앱, `main` 브레이크포인트 적중 (pc `0x3491a`, 소스·스레드 모두 정상)
+      단 `loadFiles: []` + `preLaunchTask: Flash` 로 바꿔야 한다 (§4 함정 5)
 - [ ] 부팅 시간 측정 (MCUboot 가 서명을 검증하는 시간)
 
 ## 6. 다음 (2·3단계 계획)

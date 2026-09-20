@@ -1,6 +1,11 @@
 {
   // cortex-debug + pyOCD (보드 내장 CMSIS-DAP)
   // gdb/pyocd/svd 경로는 fw 스크립트가 빌드할 때 firmware/.tools 에 링크로 만든다.
+  //
+  // MCUboot 를 쓰므로 굽는 것은 cortex-debug 에 맡기지 않는다 (docs/18_dfu.md §4 함정 5).
+  //   executable 의 zephyr.elf 는 "서명 전" 이미지라 그대로 로드하면 MCUboot 가 거부한다.
+  //   preLaunchTask 로 fw flash (MCUboot + 서명된 앱) 를 하고 loadFiles 를 비워 둔다.
+  //   elf 는 심볼용으로만 쓴다.
   "version": "0.2.0",
   "configurations": [
     {
@@ -21,7 +26,8 @@
         "--script", "${workspaceFolder}/../../scripts/pyocd_cortex_debug.py"],
       "svdFile": "${workspaceFolder}/../../.tools/svd/nrf54l15_application.svd",
       "runToEntryPoint": "main",
-      "preLaunchTask": "Build",
+      "loadFiles": [],
+      "preLaunchTask": "Flash",
       "showDevDebugOutput": "none"
     },
     {
