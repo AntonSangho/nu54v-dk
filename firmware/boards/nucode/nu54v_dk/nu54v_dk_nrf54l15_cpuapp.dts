@@ -114,8 +114,33 @@
 	};
 };
 
+/*
+ * 보존 RAM 4 KB : SRAM 마지막 4 KB 를 떼어 리셋과 System OFF 에서도 내용을 남긴다.
+ * (Zephyr 의 sys_poweroff() 가 다른 RAM 의 리텐션은 끄고 이 영역만 유지한다)
+ * rtc 모듈이 기준 시각과 시간대를 여기에 둔다. 앱 RAM 은 256 KB → 252 KB 가 된다.
+ */
+/ {
+	sram_retained: memory@2003f000 {
+		compatible = "zephyr,memory-region", "mmio-sram";
+		reg = <0x2003f000 DT_SIZE_K(4)>;
+		zephyr,memory-region = "RetainedMem";
+		status = "okay";
+
+		retainedmem0: retainedmem {
+			compatible = "zephyr,retained-ram";
+			status = "okay";
+		};
+	};
+
+	aliases {
+		retainedmemdevice = &retainedmem0;
+	};
+};
+
 &cpuapp_sram {
 	status = "okay";
+	reg = <0x20000000 DT_SIZE_K(252)>;
+	ranges = <0x0 0x20000000 0x3f000>;
 };
 
 /* 32.768kHz 크리스탈 Y1 : P1.00/P1.01 (SB18/SB19), 외부 부하 커패시터 C1/C2 13pF */

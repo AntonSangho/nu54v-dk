@@ -22,6 +22,7 @@
 | 12 | [12_adc.md](12_adc.md) | 배터리 전압(ADC), 칩 온도 |
 | 13 | [13_pmic.md](13_pmic.md) | BQ25186 충전기 (상태 읽기, 충전 전류 설정) |
 | 14 | [14_nvs.md](14_nvs.md) | 설정 저장 (Settings + ZMS) |
+| 15 | [15_rtc.md](15_rtc.md) | 날짜·시계, 로그 타임스탬프 |
 | - | [roadmap.md](roadmap.md) | 브링업 로드맵 (05 이후 예제 계획, BLE NUS ↔ baram-term) |
 
 새 기능은 [roadmap.md](roadmap.md) 의 번호대로 `NN_<기능>.md` 를 추가하고 위 표에 적는다.
@@ -43,6 +44,7 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-20 | `projects/rtc` : 기준 epoch + GRTC 카운터, 보존 RAM 4 KB(보드 DTS), 시간대 nvs 저장, 로그 타임스탬프. System OFF 는 카운터 유지, 소프트 리셋은 0 부터 (데이터시트와 다름 — 15_rtc §3) |
 | 2026-09-20 | `projects/nvs` : Zephyr Settings + ZMS(RRAM 용) 로 이름 기반 저장, 리셋 후 유지 확인. 참조에 qmk-zephyr 추가 |
 | 2026-09-20 | `projects/pmic` : BQ25186 상태/이상 읽기, 충전 전류 10 mA → 150 mA (배터리 300 mAh, 0.5C), /CE 제어. Zephyr charger 드라이버는 초기화 시 설정을 덮어써서 보류 |
 | 2026-09-20 | 08 button ~ 11 power 예제에 빠져 있던 i2c/shtc3 를 넣어 **누적 규칙**을 맞춤 (각 예제 = 앞 단계 + 새 모듈). 네 예제 모두 보드에서 i2c scan / shtc3 read 확인 |
@@ -66,7 +68,7 @@
 - [ ] LED 육안 확인, VS Code F5 디버깅 확인
 - [ ] Windows / Linux 에서 빌드·다운로드·디버깅 확인
 - [ ] 소비전류 측정 (J1 + PPK2, SWD 분리) — [11_power.md](11_power.md) §5 표 채우기, DC/DC 판단
-- [ ] 다음 예제: [roadmap.md](roadmap.md) 순서 (**15 rtc** → 16 ble_nus → … → 16 ble_nus → … → 20 epaper(마지막))
+- [ ] 다음 예제: [roadmap.md](roadmap.md) 순서 (**16 ble_nus** → 17 ble_power → … → 16 ble_nus → … → 20 epaper(마지막))
 - [ ] e-paper 모델(흑백/흑백적)과 실제 배선 핀 확정
 - [ ] 보드 미확인 항목 ([02_board_package.md](02_board_package.md) §5): DC/DC, HFXO 부하, 솔더 브리지
 

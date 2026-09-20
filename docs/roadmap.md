@@ -36,8 +36,8 @@
 | 12 | `adc` | 배터리 전압(VBAT_MON, 분압 ×1.470) + 칩 온도, `adc`/`temp` CLI | P1.12(AIN5), TEMP | adc (nrf54l15-bd) | 읽을 때만 SAADC 동작, 분압 누설 2.8 µA | ✅ |
 | 13 | `pmic` | BQ25186 충전기: 상태·이상·설정 읽기, 충전 전류 설정, /CE 제어, `/INT` 이벤트 | I2C 0x6A, P1.11 INT, P2.08 PG, P2.10 CE | (신규, Arduino pmic 예제 참고) | 폴링 없이 /INT 인터럽트 | ✅ |
 | 14 | `nvs` | 설정 저장 (Zephyr Settings + ZMS, storage 파티션), `nvs` CLI | RRAM `storage_partition` | nvs (NU87 API), qmk-zephyr (쓰기 합치기) | 값이 바뀔 때만 쓰기, 잦으면 모아서 | ✅ |
-| 15 | `rtc` | **날짜·시계**: 연월일 시분초, epoch(UTC), 시간대, `rtc` CLI(`rtc info / set date / set time / tz`), 주기 깨우기, 워치독, **log 타임스탬프** (§5) | GRTC(LFXO), WDT31, 보존 RAM | rtc (NU87 API), reset | GRTC 는 System OFF 에서도 동작, 1초 틱 없이 조회 시 계산 | |
-| 16 | `ble_nus` | **BLE NUS 를 uart 가상 채널로 추가 → baram-term 과 통신** | RADIO | uart(`uartSetDriver`), cli | 광고/연결 간격, TX 전력 | |
+| 15 | `rtc` | 날짜·시계 (기준 epoch + GRTC, 보존 RAM), 시간대(nvs), log 타임스탬프, `rtc` CLI | GRTC, 보존 RAM 4 KB | rtc (NU87 API) | 틱 없음, System OFF 에서도 시각 유지 | ✅ |
+| 16 | `ble_nus` | **BLE NUS 를 uart 가상 채널로 추가 → baram-term 과 통신**. `_USE_HW_BLE` 로 끄고 켤 수 있게 (끄면 BLE 코드·Kconfig 전부 빠짐) | RADIO | uart(`uartSetDriver`), cli, nrf54l15-bd `nrf54l-fw-fota` | 광고/연결 간격, TX 전력 | |
 | 17 | `ble_power` | BLE 저전력 튜닝: 광고 주기, 연결 파라미터, 슬레이브 레이턴시 | RADIO | | 광고/연결 상태별 평균 전류 표 | |
 | 18 | `dfu` | MCUboot + SMP 로 펌웨어 업데이트 (UART / BLE) | slot0/slot1 파티션 | loader, ymodem | 부트로더 크기와 부팅 시간 | |
 | 19 | `app` | 위 모듈을 합친 기본 펌웨어 (cli + ble_nus + 센서 + 전원 관리) | 전체 | ap/system | 동작 모드별 전류 | |
@@ -72,6 +72,8 @@ VCOM1 (uart20) ─────────────────────�
   - 광고: 연결 전 빠른 광고 → 일정 시간 뒤 느린 광고(예: 1 s) 또는 멈춤, 버튼으로 다시 시작
   - 연결: 대기 중에는 긴 연결 간격 + 슬레이브 레이턴시, 데이터가 오갈 때만 짧은 간격 요청
   - TX 전력은 필요한 만큼만
+- **옵션으로 뺄 수 있게 한다**: `hw_def.h` 의 `_USE_HW_BLE` 하나로 BLE 모듈·cli_ble 채널·`CONFIG_BT*` 까지 빠지게 한다
+  (Kconfig 는 프로젝트의 `prj.conf` 가 아니라 BLE 를 쓰는 예제에서만 켠다). 끈 상태로도 빌드·동작이 그대로여야 한다.
 - **확인 필요**: baram-term 의 NUS 접속 방식 (장치 이름/주소로 찾기, 재연결, 줄바꿈 처리)
 
 ## 3. e-paper (20단계, 마지막) 계획

@@ -11,7 +11,8 @@ NU54-DK 모듈(NCRB54N01VC)의 SoC는 **nRF54L15** 이다. 앱 코어(Cortex-M33
 | RRAM (cpuapp) | `0x0000_0000` | `0x0017_D000` | 1524 KB | 앱 코어 코드/데이터 (`cpuapp_rram`) — RRAM 전체 |
 | FICR | `0x00FF_C000` | `0x00FF_D000` | 4 KB | 공장 정보 (읽기 전용, MAC, part 등) |
 | UICR | `0x00FF_D000` | `0x00FF_E000` | 4 KB | 사용자 설정 (보호, OTP, bl_storage `0xFFD500`) |
-| SRAM (cpuapp) | `0x2000_0000` | `0x2004_0000` | 256 KB | 앱 코어 RAM (`cpuapp_sram`) — SRAM 전체 |
+| SRAM (cpuapp) | `0x2000_0000` | `0x2003_F000` | 252 KB | 앱 코어 RAM (`cpuapp_sram`) |
+| SRAM (보존) | `0x2003_F000` | `0x2004_0000` | 4 KB | 리셋·System OFF 에도 남는 영역 (`retainedmem0`, rtc 가 사용 — [15_rtc](15_rtc.md)) |
 | 주변장치 (NS) | `0x4000_0000` | `0x5000_0000` | | Non-Secure 별칭 |
 | 주변장치 (S) | `0x5000_0000` | `0x6000_0000` | | 현재 빌드(Secure)는 이 주소 사용 |
 | Cortex-M33 PPB | `0xE000_0000` | | | SCS, ITM, DWT 등 |

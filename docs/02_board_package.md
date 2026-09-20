@@ -19,6 +19,7 @@
 | `nu54v_dk_nrf54l15_cpuapp.yaml` | twister 메타데이터 |
 | `board.cmake` | 플래시/디버그 러너 (pyOCD 기본, J-Link/nrfutil 대체) |
 | `board.c`, `CMakeLists.txt` | 부팅 시 보드 초기화: NFC 패드 끄기 (P1.02/P1.03 을 I2C 로 사용) |
+| DTS `retainedmem0` | 보존 RAM 4 KB (SRAM 마지막 4 KB) — 리셋·System OFF 에도 남는다 (rtc 기준 시각) |
 
 ## 2. 핀맵 (회로도 기준)
 
