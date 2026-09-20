@@ -241,6 +241,30 @@ def default_image(build_dir):
     return build_dir
 
 
+# MCUboot 서명 키의 경로를 넘긴다.
+#
+# 앱 이미지와 MCUboot 이미지가 상대 경로를 서로 다르게 푼다 (앱은 west topdir 기준,
+# MCUboot 는 conf 파일 폴더 기준). 저장소 위치는 PC 마다 다르므로 여기서 절대 경로로 만든다.
+# MCUboot 를 쓰지 않는 프로젝트에는 넘기지 않는다 (그 심볼 자체가 없다).
+#
+def signing_key_arg(project):
+    sysbuild_conf = project / "sysbuild.conf"
+
+    if not sysbuild_conf.exists():
+        return []
+    if "SB_CONFIG_BOOTLOADER_MCUBOOT=y" not in sysbuild_conf.read_text():
+        return []
+
+    key = FW_DIR / "keys" / "nu54v_dk_ed25519.pem"
+    if not key.exists():
+        print(f"[경고] 서명 키가 없다: {key}")
+        print("       imgtool keygen -k <경로> -t ed25519 로 만든다 (docs/18_dfu.md)")
+        return []
+
+    # Kconfig 문자열이므로 값에 따옴표가 들어가야 한다 (없으면 malformed string literal).
+    return [f'-DSB_CONFIG_BOOT_SIGNATURE_KEY_FILE="{key.as_posix()}"']
+
+
 def cmd_build(args, cfg, sdk_dir, env):
     update_tools(sdk_dir, env)
     project = args.project
@@ -249,6 +273,7 @@ def cmd_build(args, cfg, sdk_dir, env):
     if args.pristine:
         cmd += ["-p", "always"]
     cmd += ["--", f"-DBOARD_ROOT={FW_DIR.as_posix()}"]
+    cmd += signing_key_arg(project)
     ret = run(cmd, env, project)
     if ret == 0:
         # IntelliSense 가 이미지 이름과 무관하게 build/compile_commands.json 을 보도록 복사

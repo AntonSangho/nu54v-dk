@@ -23,7 +23,8 @@
 | 13 | [13_pmic.md](13_pmic.md) | BQ25186 충전기 (상태 읽기, 충전 전류 설정) |
 | 14 | [14_nvs.md](14_nvs.md) | 설정 저장 (Settings + ZMS) |
 | 15 | [15_rtc.md](15_rtc.md) | 날짜·시계, 로그 타임스탬프 |
-| 16 | [16_ble_nus.md](16_ble_nus.md) | BLE NUS (cli 를 BLE 로), 서비스 확장 구조 |
+| 16 | [16_ble_nus.md](16_ble_nus.md) | BLE NUS (cli 를 BLE 로), 서비스 확장 구조, 송신 MTU 모으기 |
+| 18 | [18_dfu.md](18_dfu.md) | MCUboot 펌웨어 업데이트 (1단계 완료 — 메모리맵 이동, 서명, 함정 4개) |
 | - | [roadmap.md](roadmap.md) | 브링업 로드맵 (05 이후 예제 계획, BLE NUS ↔ baram-term) |
 
 새 기능은 [roadmap.md](roadmap.md) 의 번호대로 `NN_<기능>.md` 를 추가하고 위 표에 적는다.

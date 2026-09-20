@@ -47,6 +47,9 @@ NU54-DK 모듈(NCRB54N01VC)의 SoC는 **nRF54L15** 이다. 앱 코어(Cortex-M33
 
 (NCS v3.4.1, `CONFIG_DEBUG_OPTIMIZATIONS=y`)
 
+> **`dfu`(18) 부터는 다르다**: MCUboot 를 쓰면 부트로더가 `0x0`(56 KB 실측), 앱이 `slot0`(`0x10000`)에 링크되고
+> 앱 앞에 0x800 짜리 MCUboot 헤더가 붙는다 ([18_dfu](18_dfu.md) §2).
+
 > **주의**: 부트로더 없이 링크하면 앱 이미지가 파티션 라벨과 무관하게 0x0 부터 채워진다.
 > 앱이 `storage_partition`(NVS/Settings)을 쓰게 되면 이미지 크기가 `0x174000`(1488 KB)을 넘지 않는지 확인한다.
 > MCUboot 를 도입하면(로드맵 `dfu`) `slot0_partition`(0x10000)에 링크되도록 바뀐다.

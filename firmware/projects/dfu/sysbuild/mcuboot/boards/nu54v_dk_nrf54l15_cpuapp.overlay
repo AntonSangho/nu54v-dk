@@ -1,0 +1,12 @@
+/*
+ * MCUboot 이미지는 boot_partition(0x0, 62 KB)에 링크한다.
+ *
+ * 보드 DTS 가 zephyr,code-partition = &slot0_partition 으로 두기 때문에
+ * 이 오버레이가 없으면 MCUboot 까지 0x10000 에 링크되어 부팅하지 못한다.
+ */
+
+/ {
+	chosen {
+		zephyr,code-partition = &boot_partition;
+	};
+};

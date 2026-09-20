@@ -39,9 +39,10 @@
 | 15 | `rtc` | 날짜·시계 (기준 epoch + GRTC, 보존 RAM), 시간대(nvs), log 타임스탬프, `rtc` CLI | GRTC, 보존 RAM 4 KB | rtc (NU87 API) | 틱 없음, System OFF 에서도 시각 유지 | ✅ |
 | 16 | `ble_nus` | BLE 스택/역할/서비스 3층, NUS 를 uart 가상 채널로 → cli 가 BLE 에서 동작 | RADIO | uart(`uartSetDriver`), cli_mgr (NU87) | 수신 콜백 → 알림, 광고/연결 간격은 17 | ✅ |
 | 17 | `ble_power` | BLE 저전력 튜닝: 광고 주기, 연결 파라미터, 슬레이브 레이턴시 | RADIO | | 광고/연결 상태별 평균 전류 표 | |
-| 18 | `dfu` | MCUboot + SMP 로 펌웨어 업데이트 (UART / BLE). 도구는 mcumgr·nRF Connect (baram-term 은 NUS 만 씀) | slot0/slot1 파티션 | loader, ymodem, nrf54l15-bd `nrf54l-fw-fota` | 부트로더 크기와 부팅 시간 | |
-| 19 | `app` | 위 모듈을 합친 기본 펌웨어 (cli + ble_nus + 센서 + 전원 관리) | 전체 | ap/system | 동작 모드별 전류 | |
-| 20 | `epaper` | **WeAct 4.2" e-paper (SSD1683, 400×300)** (마지막 단계, app 에 화면 추가) : SPI, 화면 버퍼, 글자/도형, 전체/부분 갱신 | SPI00 + GPIO (P2 헤더, §3) | spi, lcd (+ lcd/ssd1306 구조) | 갱신 후 deep sleep, 부분 갱신, 필요 시 VCC 차단 | |
+| 18 | `dfu` | MCUboot(swap using move) + SMP 로 펌웨어 업데이트 (BLE + 시리얼 VCOM0). 서명 키는 저장소에 포함. `dfu info/test/confirm/revert` CLI | slot0/slot1 파티션 | nrf/samples/dfu/smp_svr, nrf54l15-bd `nrf54l-fw-fota` | 부트로더 크기와 부팅 시간 | 진행 중 |
+| 19 | `web_dfu` | 저장소 GitHub Pages 에서 **Web Bluetooth / Web Serial** 로 업데이트하는 페이지. 참고: boogie/mcumgr-web (BLE 쪽 구현 있음), 시리얼은 직접 (§7) | | | 업로드 중 연결 간격만 당기고 복귀 | |
+| 20 | `app` | 위 모듈을 합친 기본 펌웨어 (cli + ble_nus + 센서 + 전원 관리) | 전체 | ap/system | 동작 모드별 전류 | |
+| 21 | `epaper` | **WeAct 4.2" e-paper (SSD1683, 400×300)** (마지막 단계, app 에 화면 추가) : SPI, 화면 버퍼, 글자/도형, 전체/부분 갱신 | SPI00 + GPIO (P2 헤더, §3) | spi, lcd (+ lcd/ssd1306 구조) | 갱신 후 deep sleep, 부분 갱신, 필요 시 VCC 차단 | |
 
 선택 예제 (필요할 때):
 
@@ -76,7 +77,7 @@ VCOM1 (uart20) ─────────────────────�
   (Kconfig 는 프로젝트의 `prj.conf` 가 아니라 BLE 를 쓰는 예제에서만 켠다). 끈 상태로도 빌드·동작이 그대로여야 한다.
 - **확인 필요**: baram-term 의 NUS 접속 방식 (장치 이름/주소로 찾기, 재연결, 줄바꿈 처리)
 
-## 3. e-paper (20단계, 마지막) 계획
+## 3. e-paper (21단계, 마지막) 계획
 
 자료: https://github.com/WeActStudio/WeActStudio.EpaperModule (`Doc/4.2 Inch Black&Write`, `Doc/4.2 Inch Black&Write&Red`, `Doc/SSD1683_Datasheet.PDF`)
 
@@ -174,3 +175,46 @@ epoch = base_epoch + (GRTC 카운터 - base_count) / 1 000 000
 - [ ] 빌드 / 다운로드 / 디버그 / 콘솔 확인
 - [ ] 저전력 항목 확인, 가능하면 전류 측정값 기록
 - [ ] `docs/NN_<이름>.md` 작성, [00_handoff.md](00_handoff.md) 진행 상황·다음 할 일 갱신
+
+## 8. 웹 업데이트 (19단계) 와 UF2 검토 결과
+
+### 웹으로 간다 — 경로 셋을 한 페이지에
+
+저장소의 GitHub Pages 에 정적 페이지 하나를 두고 브라우저에서 바로 굽는다.
+GitHub Pages 가 HTTPS 라 세 API 모두의 요구 조건을 만족한다. 사용자는 아무것도 설치하지 않는다.
+
+| 경로 | API | 쓰는 때 | 빈 보드 | 참고 구현 |
+|---|---|---|---|---|
+| **SWD** | WebUSB + CMSIS-DAP (dapjs) | 부트로더+앱 전체 설치, 벽돌 복구 | **가능** | ARMmbed/dapjs, `xiao-nrf54l15-web-flasher` |
+| BLE | Web Bluetooth + SMP | 현장 업데이트 | 불가 | boogie/mcumgr-web (업로드 + test/confirm/erase) |
+| 시리얼 | Web Serial + SMP | 업데이트 / 자동 시험 | 불가 | 없음 — 직접 구현 |
+
+되는 브라우저 : WebUSB·Web Serial 은 Chrome / Edge 데스크톱 (WebUSB 는 Android 도), Web Bluetooth 는 여기에 Opera 추가.
+**Safari · Firefox · iOS 는 전부 안 된다.**
+
+#### SWD (WebUSB) 가 되는 이유
+
+- 보드의 프로브가 WebUSB 를 내놓는다 : `DETAILS.TXT` → `USB Interfaces: MSD, CDC, HID, WebUSB`.
+  MSD 드래그앤드롭이 실패하는 것은 DAPLink 의 *타깃 인식* 부분이고, CMSIS-DAP 자체는 멀쩡하다 (pyOCD 가 그것으로 굽는다).
+- nRF54L15 의 RRAM 쓰기 루틴이 아주 작다. pyOCD 의 `FLASH_ALGO` 는 명령어 240 바이트 남짓이고
+  RRAM 컨트롤러(`0x5004B000`)를 찔러 워드 단위로 쓰는 게 전부다 (`page_size: 0x4`, erase 없음).
+  → dapjs 에 그대로 실어 쓸 수 있다.
+  참고 : `pyocd/target/builtin/target_nRF54L15.py`, `pyocd/target/family/target_nRF54L.py` (CTRL-AP 로 ERASEALL / APPROTECT 해제도 여기 있다)
+
+- 시리얼 SMP 프레이밍 : `0x06 0x09` 시작 마커 + 2바이트 길이 + **base64 본문** + **CRC16(0x1021, 초기값 0)**.
+  Zephyr 에 base64 를 쓰지 않는 `CONFIG_MCUMGR_TRANSPORT_RAW_UART` 도 있지만 mcumgr CLI 같은 표준 도구와 안 맞는다 → 표준 쪽을 쓴다.
+- 펌웨어 바이너리(`zephyr.signed.bin`)를 Pages 에 같이 올리면 파일 고르기 없이 "최신 버전 굽기" 가 된다 (GitHub Actions 로 빌드 → 배포).
+- **주의**: BLE 는 중앙이 하나뿐이라 baram-term 등이 연결 중이면 브라우저 장치 목록에 보드가 안 보인다 (연결 중에는 광고를 멈춘다).
+  페이지에 안내문을 넣는다. 자동화는 `baram-ctl release` → 업데이트 → `resume`.
+- `docs/` 는 한국어 문서라, Pages 는 별도 `web/` 폴더를 Actions 로 `gh-pages` 에 배포한다.
+
+### UF2 는 하지 않는다
+
+- **nRF54L15 에는 USB 주변장치가 없다** (Zephyr DTS 에 USB 노드가 없다). UF2 부트로더는 칩이 스스로 USB 저장장치로 떠야 하므로 성립하지 않는다.
+- 보드를 꽂으면 보이는 드라이브(`NU54V2PRE`)는 **온보드 DAPLink 프로브**가 만든 것이다 (`DETAILS.TXT` : "based on DAPLink", HIC ID `6e052840`, MSD/CDC/HID/WebUSB).
+  드롭한 파일을 프로브가 SWD 로 굽는 구조이고, `INFO_UF2.TXT` 가 없으니 UF2 모드가 아니라 `.hex`/`.bin` 을 받는다.
+- 게다가 지금 이 프로브는 타깃을 인식하지 못한다 — `Target Detect: SWD init failed`,
+  `FAILURE.TXT` : "Unable to read or identify supported target information over SWD."
+  pyOCD(`fw flash`)는 CMSIS-DAP 명령으로 직접 SWD 를 다루므로 잘 된다. MSD 드래그앤드롭은 프로브 펌웨어에 타깃 알고리즘이 있어야 한다.
+- Zephyr 의 `CONFIG_BUILD_OUTPUT_UF2` 는 family ID 목록에 nRF54L 이 없다.
+- **결론**: 초기 설치·복구는 `fw flash`(SWD), 현장 업데이트는 SMP, 사용자 업데이트는 웹. UF2 / MSD 경로는 만들지 않는다.
