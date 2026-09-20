@@ -72,6 +72,12 @@
   .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
   .panel { display: none; }
   .panel.on { display: block; }
+  .bar {
+    height: 8px; border-radius: 999px; background: var(--line);
+    overflow: hidden; margin: 10px 0 6px; display: none;
+  }
+  .bar.on { display: block; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width 0.15s; }
   .warn {
     border-left: 3px solid var(--accent); padding-left: 12px; margin: 12px 0;
     font-size: 0.88rem; color: var(--dim);
@@ -133,6 +139,7 @@
       <input type="file" id="hexfile" accept=".hex" multiple>
       <button id="program" class="primary" disabled>굽기</button>
     </div>
+    <div class="bar" id="progress-bar"><div></div></div>
     <div id="progress" class="note" style="margin-top:10px"></div>
   </div>
   </div><!-- /tab-swd -->
@@ -152,6 +159,7 @@
       <button id="ble-upload" disabled>업데이트</button>
     </div>
     <div id="ble-state" class="note" style="margin-top:10px"></div>
+    <div class="bar" id="ble-progress-bar"><div></div></div>
     <div id="ble-progress" class="note"></div>
   </div>
   </div><!-- /tab-ble -->
@@ -171,6 +179,7 @@
       <button id="ser-upload" disabled>업데이트</button>
     </div>
     <div id="ser-state" class="note" style="margin-top:10px"></div>
+    <div class="bar" id="ser-progress-bar"><div></div></div>
     <div id="ser-progress" class="note"></div>
   </div>
   </div><!-- /tab-serial -->

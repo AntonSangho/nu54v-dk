@@ -24,6 +24,20 @@ function log(msg, cls) {
   el.scrollTop = el.scrollHeight;
 }
 
+/* 진행 바. pct 가 null 이면 감춘다. */
+function setProgress(id, pct, text) {
+  const bar = $(`${id}-bar`);
+  const label = $(id);
+  if (pct === null) {
+    bar.classList.remove("on");
+    label.textContent = "";
+    return;
+  }
+  bar.classList.add("on");
+  bar.firstElementChild.style.width = `${pct}%`;
+  label.textContent = text || "";
+}
+
 function setConnected(on) {
   $("connect").disabled = on;
   $("disconnect").disabled = !on;
@@ -213,7 +227,8 @@ async function programFiles() {
 
       const result = await flasher.program(text, (done, total) => {
         const pct = Math.floor((done * 100) / total);
-        $("progress").textContent = `${file.name} : ${pct}%  (${(done / 1024).toFixed(0)} / ${(total / 1024).toFixed(0)} KB)`;
+        setProgress("progress", pct,
+          `${file.name} : ${pct}%  (${(done / 1024).toFixed(0)} / ${(total / 1024).toFixed(0)} KB)`);
       });
 
       const sec = (performance.now() - t0) / 1000;
@@ -235,7 +250,7 @@ async function programFiles() {
     log(`굽기 실패 : ${e.message || e}`, "err");
   } finally {
     $("program").disabled = false;
-    $("progress").textContent = "";
+    setProgress("progress", null);
   }
 }
 
@@ -369,8 +384,8 @@ async function bleUpload() {
     const t0 = performance.now();
     await bleClient.upload(image, (done, total) => {
       const pct = Math.floor((done * 100) / total);
-      $("ble-progress").textContent =
-        `업로드 ${pct}%  (${(done / 1024).toFixed(0)} / ${(total / 1024).toFixed(0)} KB)`;
+      setProgress("ble-progress", pct,
+        `업로드 ${pct}%  (${(done / 1024).toFixed(0)} / ${(total / 1024).toFixed(0)} KB)`);
     });
     const sec = (performance.now() - t0) / 1000;
     log(`업로드 완료 : ${sec.toFixed(1)} 초 (${(image.length / 1024 / sec).toFixed(1)} KB/s)`, "ok");
@@ -400,7 +415,7 @@ async function bleUpload() {
     log(`업데이트 실패 : ${e.message || e}`, "err");
   } finally {
     $("ble-upload").disabled = false;
-    $("ble-progress").textContent = "";
+    setProgress("ble-progress", null);
   }
 }
 
@@ -483,8 +498,8 @@ async function serUpload() {
     const t0 = performance.now();
     await serClient.upload(image, (done, total) => {
       const pct = Math.floor((done * 100) / total);
-      $("ser-progress").textContent =
-        `업로드 ${pct}%  (${(done / 1024).toFixed(0)} / ${(total / 1024).toFixed(0)} KB)`;
+      setProgress("ser-progress", pct,
+        `업로드 ${pct}%  (${(done / 1024).toFixed(0)} / ${(total / 1024).toFixed(0)} KB)`);
     });
     const sec = (performance.now() - t0) / 1000;
     log(`업로드 완료 : ${sec.toFixed(1)} 초 (${(image.length / 1024 / sec).toFixed(1)} KB/s)`, "ok");
@@ -513,7 +528,7 @@ async function serUpload() {
     log(`업데이트 실패 : ${e.message || e}`, "err");
   } finally {
     $("ser-upload").disabled = false;
-    $("ser-progress").textContent = "";
+    setProgress("ser-progress", null);
   }
 }
 

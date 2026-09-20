@@ -265,7 +265,7 @@ class SmpClient {
    * 첫 요청에만 len 과 sha 를 같이 보낸다 (보드가 전체 크기를 알아야 한다).
    * 보드는 응답으로 다음에 보낼 위치(off)를 알려 준다.
    */
-  async upload(image, onProgress, chunkSize = 160) {
+  async upload(image, onProgress, chunkSize = 160, retries = 3) {
     const sha = new Uint8Array(await crypto.subtle.digest("SHA-256", image));
     let off = 0;
 
@@ -277,9 +277,22 @@ class SmpClient {
         payload.sha = sha;
       }
 
-      const rsp = await this.request(
-        SMP_OP.WRITE, SMP_GROUP.IMAGE, SMP_ID_IMAGE.UPLOAD, payload,
-        off === 0 ? 40000 : 10000);            // 첫 조각은 슬롯을 지우느라 오래 걸린다
+      // 조각 하나가 실패하면 같은 위치를 다시 보낸다.
+      // 보드는 다음에 받을 위치(off)를 돌려주므로 같은 자리를 다시 보내도 안전하다.
+      let rsp = null;
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          rsp = await this.request(
+            SMP_OP.WRITE, SMP_GROUP.IMAGE, SMP_ID_IMAGE.UPLOAD, payload,
+            off === 0 ? 40000 : 10000);        // 첫 조각은 슬롯을 지우느라 오래 걸린다
+          break;
+        } catch (e) {
+          if (attempt === retries) throw e;
+          this.log(`조각 재전송 (${off} 바이트 지점, ${attempt + 1}/${retries}) — ${e.message}`);
+          this.pending = null;                 // 늦게 온 응답은 버린다
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      }
 
       if (typeof rsp.off !== "number") throw new Error("응답에 off 가 없다");
       off = rsp.off;
