@@ -71,6 +71,12 @@ static const char *uart_name[UART_MAX_CH] =
 
 // 하드웨어 채널. 여기에 없는 채널은 uartSetDriver() 로 드라이버를 붙여야 열린다.
 //
+/* cli/log 포트는 반드시 async(DMA) API 여야 한다.
+ * UART_INTERRUPT_DRIVEN 을 select 하는 옵션(예: UART_MCUMGR)이 켜지면 인스턴스 기본값이
+ * 인터럽트 방식으로 뒤집혀 uart_rx_enable() 이 NULL 이 된다 → 부팅 직후 USAGE FAULT. */
+BUILD_ASSERT(IS_ENABLED(CONFIG_UART_20_ASYNC),
+             "uart20 은 async API 로 써야 한다. CONFIG_UART_20_INTERRUPT_DRIVEN=n 을 넣어라");
+
 static uart_hw_t uart_hw[] =
 {
   { .ch = HW_UART_CH_LOG,   .h_dev = DEVICE_DT_GET(DT_NODELABEL(uart20)) },

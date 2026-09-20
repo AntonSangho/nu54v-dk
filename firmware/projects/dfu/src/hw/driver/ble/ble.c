@@ -255,9 +255,9 @@ void cliBle(cli_args_t *args)
 
       if (bt_conn_get_info(p_cur_conn, &conn_info) == 0 && conn_info.type == BT_CONN_TYPE_LE)
       {
-        // 인터벌 단위 1.25 ms, 타임아웃 단위 10 ms. 짧은 데이터의 지연은 대부분 이 인터벌이다.
+        // 짧은 데이터의 지연은 대부분 이 인터벌이다. (le.interval 은 deprecated → interval_us)
         cliPrintf("  interval: %d.%02d ms\n",
-                  (conn_info.le.interval * 125) / 100, (conn_info.le.interval * 125) % 100);
+                  conn_info.le.interval_us / 1000, (conn_info.le.interval_us % 1000) / 10);
         cliPrintf("  latency : %d\n", conn_info.le.latency);
         cliPrintf("  timeout : %d ms\n", conn_info.le.timeout * 10);
 #if defined(CONFIG_BT_USER_PHY_UPDATE)

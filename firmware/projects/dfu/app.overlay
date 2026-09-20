@@ -11,3 +11,15 @@
 &i2c21 {
 	status = "okay";
 };
+
+/* SMP(시리얼 DFU)는 VCOM0(uart30)을 쓴다. cli/log 는 VCOM1(uart20) 그대로.
+ * uart_mcumgr 드라이버가 이 chosen 을 보고 포트를 잡는다. */
+/ {
+	chosen {
+		zephyr,uart-mcumgr = &uart30;
+	};
+};
+
+&uart30 {
+	status = "okay";
+};

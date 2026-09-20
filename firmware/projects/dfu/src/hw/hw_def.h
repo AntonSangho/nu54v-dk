@@ -3,9 +3,13 @@
 
 
 #include "bsp.h"
+#include <app_version.h>          // VERSION 파일에서 생성된다
 
 
-#define _DEF_FIRMWATRE_VERSION      "V260920R1"
+/* 버전은 VERSION 파일 하나에서 나온다.
+ * 같은 값이 MCUboot 이미지 버전(CONFIG_MCUBOOT_IMGTOOL_SIGN_VERSION)으로도 들어가므로
+ * cli 의 `info` 한 줄로 업데이트 성공 여부를 판정할 수 있다 (baram-term 쪽 요청). */
+#define _DEF_FIRMWATRE_VERSION      APP_VERSION_TWEAK_STRING
 #define _DEF_BOARD_NAME             "NU54-DK-DFU"
 
 
@@ -56,6 +60,11 @@
 #define _USE_HW_BLE_NUS
 // #define _USE_HW_BLE_CENTRAL          // 중앙 역할 (자리만, conf/ble_central.conf)
 // #define _USE_HW_BLE_NUS_CLIENT       // NUS 클라이언트 (자리만)
+
+/* DFU : MCUboot + SMP. 전송 경로를 따로 켠다 (Kconfig 는 firmware/conf/dfu*.conf) */
+#define _USE_HW_DFU
+#define _USE_HW_DFU_BLE
+#define _USE_HW_DFU_SERIAL
 
 #define _USE_HW_RTC
 

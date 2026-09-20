@@ -7,6 +7,13 @@ list(APPEND EXTRA_CONF_FILE
   ${CMAKE_CURRENT_LIST_DIR}/../../conf/ble_nus.conf
 )
 
+# DFU : MCUmgr(SMP) 공통 + 전송 경로별 조각 (hw_def.h 의 _USE_HW_DFU* 와 짝)
+list(APPEND EXTRA_CONF_FILE
+  ${CMAKE_CURRENT_LIST_DIR}/../../conf/dfu.conf
+  ${CMAKE_CURRENT_LIST_DIR}/../../conf/dfu_ble.conf
+  ${CMAKE_CURRENT_LIST_DIR}/../../conf/dfu_serial.conf
+)
+
 # 보드 패키지(firmware/boards)는 fw 스크립트가 -DBOARD_ROOT 로 전달한다.
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 

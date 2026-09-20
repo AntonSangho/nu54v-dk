@@ -156,6 +156,46 @@ cortex-debug 는 `executable` 로 준 `zephyr.elf` 를 타깃에 **그대로 로
 
 `executable` 의 elf 는 **심볼용으로만** 쓴다. 주소가 slot0(0x10000)라 심볼은 그대로 맞는다.
 
+### 함정 6 — SMP 시리얼을 켜면 cli 포트가 죽는다 (부팅 직후 USAGE FAULT)
+
+`CONFIG_UART_MCUMGR` 은 `UART_INTERRUPT_DRIVEN` 을 **select** 한다. 그런데 nRF UARTE 의 인스턴스별 설정이
+
+```kconfig
+config UART_<n>_INTERRUPT_DRIVEN
+	depends on UART_INTERRUPT_DRIVEN
+	default y                                  # ← 켜지면 모든 포트가 인터럽트 방식이 된다
+config UART_<n>_ASYNC
+	depends on UART_ASYNC_API && !UART_<n>_INTERRUPT_DRIVEN
+```
+
+이라서, SMP 를 위해 uart30 하나만 인터럽트 방식이 필요한데 **cli 가 쓰는 uart20 까지 넘어간다**.
+그러면 드라이버가 async API 를 만들지 않아 `uart_rx_enable()` 이 NULL 이 되고, `uartRxStart()` 에서 PC=0 으로 점프한다.
+
+```
+*** Booting My Application v1.0.0 ***
+***** USAGE FAULT *****
+  Illegal use of the EPSR
+r14/lr:  0x000370b1              ← uartRxStart() (uart.c)
+Faulting instruction address (r15/pc): 0x00000000
+```
+
+포트별로 명시한다 (`conf/dfu_serial.conf`).
+
+```kconfig
+CONFIG_UART_20_INTERRUPT_DRIVEN=n     # VCOM1 : cli/log — async(DMA)
+CONFIG_UART_30_INTERRUPT_DRIVEN=y     # VCOM0 : SMP — uart_mcumgr
+```
+
+다시 밟지 않도록 `uart.c` 에 빌드 시 검사를 넣었다.
+
+```c
+BUILD_ASSERT(IS_ENABLED(CONFIG_UART_20_ASYNC),
+             "uart20 은 async API 로 써야 한다. CONFIG_UART_20_INTERRUPT_DRIVEN=n 을 넣어라");
+```
+
+> 디버깅 요령 : `r14/lr` 을 `arm-zephyr-eabi-addr2line -f -e build/<app>/zephyr/zephyr.elf <주소>` 로 풀면
+> 누가 NULL 을 불렀는지 바로 나온다.
+
 ## 5. 1단계 검증 결과 (2026-09-20, NCS v3.4.1)
 
 - [x] MCUboot 가 `boot_partition`(0x0)에, 앱이 `slot0`(0x10000)에 링크
@@ -168,15 +208,47 @@ cortex-debug 는 `executable` 로 준 `zephyr.elf` 를 타깃에 **그대로 로
       단 `loadFiles: []` + `preLaunchTask: Flash` 로 바꿔야 한다 (§4 함정 5)
 - [ ] 부팅 시간 측정 (MCUboot 가 서명을 검증하는 시간)
 
-## 6. 다음 (2·3단계 계획)
+## 6. 2단계 — SMP 서버 (빌드 완료, 실기 확인 남음)
 
-**2단계 — SMP 서버**
+### Kconfig 조각
 
-- `CONFIG_NCS_SAMPLE_MCUMGR_BT_OTA_DFU=y` 한 줄이면 BLE 쪽(mcumgr + BT 전송 + img/os 그룹 + 재조립)이 한 번에 켜진다
-  (`nrf/samples/common/mcumgr_bt_ota_dfu`). 시리얼은 VCOM0(uart30)에 따로 얹어 CLI(VCOM1)와 충돌하지 않게 한다
-- `VERSION` 파일을 두고 버전을 올린다. **버전이 같으면 타깃이 업데이트를 거부한다**
-- `_DEF_FIRMWATRE_VERSION` 과 이미지 버전을 하나로 묶는다 (`info` 의 `version : 1.2.3+4` 한 줄로 성공 판정)
-- 흐름 : 업로드 → test → 리셋 → 부팅 확인 → confirm (confirm 하지 않으면 되돌아간다)
+NCS 샘플의 `CONFIG_NCS_SAMPLE_MCUMGR_BT_OTA_DFU` 한 줄은 그 심볼이 `nrf/samples/common` 아래에만
+정의되어 있어 일반 앱에서 쓰기 어렵다. 표준 심볼을 직접 켜고 우리 conf 조각 방식에 맞춘다.
+
+| 파일 | 내용 | hw_def.h |
+|---|---|---|
+| `conf/dfu.conf` | MCUmgr 공통 + img/os 그룹 + MCUboot 이미지 관리 | `_USE_HW_DFU` |
+| `conf/dfu_ble.conf` | SMP over BLE (재조립, 연결 파라미터 제어) | `_USE_HW_DFU_BLE` |
+| `conf/dfu_serial.conf` | SMP over 시리얼 (VCOM0), 포트별 API 지정 | `_USE_HW_DFU_SERIAL` |
+
+- SMP Service UUID : `8D53DC1D-1DB7-4CD3-868B-8A527460AA84` (NUS 와 같은 연결 위에 함께 올라간다)
+- `MCUMGR_TRANSPORT_NETBUF_SIZE=1230` — MTU 247 기준 권장값 (MTU 498 을 쓰면 2475)
+- 시리얼 포트는 `app.overlay` 의 `chosen { zephyr,uart-mcumgr = &uart30; }` 로 정한다
+
+### 버전은 VERSION 파일 하나에서
+
+```
+firmware/projects/dfu/VERSION    VERSION_MAJOR/MINOR/PATCHLEVEL/VERSION_TWEAK
+        │
+        ├→ CONFIG_MCUBOOT_IMGTOOL_SIGN_VERSION  (기본값이 $(APP_VERSION_TWEAK_STRING))
+        └→ app_version.h 의 APP_VERSION_TWEAK_STRING
+                └→ hw_def.h 의 _DEF_FIRMWATRE_VERSION → cli `info` 의 version 줄
+```
+
+확인됨 : `CONFIG_MCUBOOT_IMGTOOL_SIGN_VERSION="1.0.0+0"`, `APP_VERSION_TWEAK_STRING "1.0.0+0"`.
+
+**업데이트하려면 버전을 올려야 한다.** 같은 버전이면 타깃이 거부한다.
+
+### 크기 (SMP 를 켠 값)
+
+| | 1단계 | 2단계 | 차이 |
+|---|---|---|---|
+| 앱 FLASH | 231,164 B | 249,336 B | +18 KB |
+| 앱 RAM | 53,368 B | 65,888 B | +12 KB |
+
+### 남은 확인
+
+업로드 → test → 리셋 → confirm 흐름을 시리얼(VCOM0)과 BLE 양쪽에서 확인한다.
 
 **3단계 — `dfu` 모듈**
 
