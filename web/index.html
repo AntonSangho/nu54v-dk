@@ -127,8 +127,8 @@
   <div class="card">
     <h2>펌웨어 굽기 — MCUboot + 앱</h2>
     <p class="note" style="margin-top:0">
-      <b><code>firmware/projects/&lt;이름&gt;/build/merged.hex</code></b> 를 고른다.
-      MCUboot 와 앱이 합쳐져 있어 한 번에 굽는다. 빈 보드도 된다.
+      목록에서 예제를 고르거나, <b><code>firmware/projects/&lt;이름&gt;/build/merged.hex</code></b> 를
+      직접 고른다. MCUboot 와 앱이 합쳐져 있어 한 번에 굽는다. 빈 보드도 된다.
     </p>
     <p class="note">
       MCUboot 를 쓰지 않는 예제는 <code>build/&lt;이름&gt;/zephyr/zephyr.hex</code> 를 고른다.
@@ -136,6 +136,7 @@
       그 상태에서는 SWD 접근도 막힌다. 그때는 [전체 삭제] 로 빠져나온다.
     </p>
     <div class="row">
+      <select id="hexsel"><option value="">파일 고르기…</option></select>
       <input type="file" id="hexfile" accept=".hex" multiple>
       <button id="program" class="primary" disabled>굽기</button>
     </div>
@@ -155,6 +156,7 @@
     <div class="row">
       <button id="ble-connect" class="primary">BLE 연결</button>
       <button id="ble-disconnect" disabled>연결 끊기</button>
+      <select id="blesel"><option value="">파일 고르기…</option></select>
       <input type="file" id="binfile" accept=".bin">
       <button id="ble-upload" disabled>업데이트</button>
       <button id="ble-confirm" disabled title="실행 중인 이미지를 확정한다. 확정 전에는 새 이미지를 올릴 수 없다">현재 이미지 확정</button>
@@ -171,11 +173,12 @@
     <p class="note" style="margin-top:0">
       보드의 <b>cli 포트(VCOM1)</b> 를 고른다. 펌웨어가 SMP 프레임만 가려내므로
       cli 와 같은 포트를 쓴다. 올리는 파일은 BLE 와 같은
-      <code>zephyr.signed.bin</code> 이다.
+      <code>zephyr.signed.bin</code> 이다 — 목록에서 바로 고를 수도 있다.
     </p>
     <div class="row">
       <button id="ser-connect" class="primary">포트 열기</button>
       <button id="ser-disconnect" disabled>닫기</button>
+      <select id="sersel"><option value="">파일 고르기…</option></select>
       <input type="file" id="serbinfile" accept=".bin">
       <button id="ser-upload" disabled>업데이트</button>
       <button id="ser-confirm" disabled title="실행 중인 이미지를 확정한다. 확정 전에는 새 이미지를 올릴 수 없다">현재 이미지 확정</button>
@@ -229,12 +232,12 @@
   "고쳤는데 그대로다" 가 나오는 원인이라, 새로고침에 기대지 않는다.
   갱신 : python3 web/bump_version.py
 -->
-<script src="js/nrf54l.js?v=202609210009"></script>
-<script src="js/flash_algo.js?v=202609210009"></script>
-<script src="js/flash.js?v=202609210009"></script>
-<script src="js/smp.js?v=202609210009"></script>
-<script src="js/ble.js?v=202609210009"></script>
-<script src="js/serial.js?v=202609210009"></script>
-<script src="js/main.js?v=202609210009"></script>
+<script src="js/nrf54l.js?v=202609210016"></script>
+<script src="js/flash_algo.js?v=202609210016"></script>
+<script src="js/flash.js?v=202609210016"></script>
+<script src="js/smp.js?v=202609210016"></script>
+<script src="js/ble.js?v=202609210016"></script>
+<script src="js/serial.js?v=202609210016"></script>
+<script src="js/main.js?v=202609210016"></script>
 </body>
 </html>

@@ -72,7 +72,7 @@ function setConnected(on) {
   $("reset").disabled = !on;
   $("recover").disabled = !on;
   $("erase").disabled = !on;
-  $("program").disabled = !on || $("hexfile").files.length === 0;
+  $("program").disabled = !on || !hasPick("hexsel", "hexfile");
 }
 
 function checkSupport() {
@@ -236,8 +236,66 @@ async function resetTarget() {
   }
 }
 
+
+//-- 예제 이미지 고르기
+//
+// 목록(fw/manifest.json)에서 고르거나, 직접 파일을 고른다.
+// 고른 예제는 파일과 같은 모양({name, text, arrayBuffer})으로 돌려주어
+// 아래 코드가 둘을 구분하지 않아도 되게 한다.
+//
+let fwList = [];
+
+async function loadFwList() {
+  try {
+    const res = await fetch("fw/manifest.json");
+    if (!res.ok) return;                       // 목록이 없으면 파일 고르기만 쓴다
+    fwList = (await res.json()).examples || [];
+  } catch (e) {
+    return;                                    // 로컬에서 그냥 열었을 때 등
+  }
+
+  const fill = (id, kind) => {
+    const sel = $(id);
+    for (const ex of fwList) {
+      if (!ex[kind]) continue;
+      const kb = Math.round((ex[kind + "_size"] || 0) / 1024);
+      const opt = document.createElement("option");
+      opt.value = ex[kind];
+      opt.textContent = `${ex.name} v${ex.version} (${kb} KB)`;
+      sel.appendChild(opt);
+    }
+  };
+
+  fill("hexsel", "hex");
+  fill("blesel", "bin");
+  fill("sersel", "bin");
+}
+
+/* 고른 것을 파일과 같은 모양으로 돌려준다 (없으면 빈 배열) */
+async function pickedFiles(selId, inputId) {
+  const sel = $(selId);
+
+  if (sel && sel.value) {
+    const res = await fetch(sel.value);
+    if (!res.ok) throw new Error(`${sel.value} 를 받지 못했다 (${res.status})`);
+    const buf = await res.arrayBuffer();
+    return [{
+      name: sel.options[sel.selectedIndex].textContent,
+      text: async () => new TextDecoder().decode(buf),
+      arrayBuffer: async () => buf,
+    }];
+  }
+
+  return [...$(inputId).files];
+}
+
+/* 고른 것이 있나 (버튼을 열지 말지) */
+function hasPick(selId, inputId) {
+  return $(selId).value !== "" || $(inputId).files.length > 0;
+}
+
 async function programFiles() {
-  const files = [...$("hexfile").files];
+  const files = await pickedFiles("hexsel", "hexfile");
   if (files.length === 0) return;
 
   $("program").disabled = true;
@@ -281,8 +339,11 @@ async function programFiles() {
   }
 }
 
+$("hexsel").addEventListener("change", () => {
+  $("program").disabled = !target || !hasPick("hexsel", "hexfile");
+});
 $("hexfile").addEventListener("change", () => {
-  $("program").disabled = !target || $("hexfile").files.length === 0;
+  $("program").disabled = !target || !hasPick("hexsel", "hexfile");
 });
 $("program").addEventListener("click", programFiles);
 $("connect").addEventListener("click", connect);
@@ -315,6 +376,7 @@ navigator.usb?.addEventListener("disconnect", (e) => {
 });
 
 checkSupport();
+loadFwList();          // 예제 목록을 채운다 (없으면 파일 고르기만 쓴다)
 log("준비됨");
 
 
@@ -346,7 +408,7 @@ let bleClient = null;
 function setBleConnected(on) {
   $("ble-connect").disabled = on;
   $("ble-disconnect").disabled = !on;
-  $("ble-upload").disabled = !on || $("binfile").files.length === 0;
+  $("ble-upload").disabled = !on || !hasPick("blesel", "binfile");
   $("ble-confirm").disabled = !on;
 }
 
@@ -401,7 +463,7 @@ async function bleDisconnect() {
 }
 
 async function bleUpload() {
-  const file = $("binfile").files[0];
+  const [file] = await pickedFiles("blesel", "binfile");
   if (!file || !bleClient) return;
 
   // 업로드 중에는 확정도 막는다. SMP 는 한 번에 한 요청뿐이라
@@ -457,6 +519,7 @@ async function bleUpload() {
 $("ble-connect").addEventListener("click", bleConnect);
 $("ble-disconnect").addEventListener("click", bleDisconnect);
 $("binfile").addEventListener("change", () => setBleConnected(bleTransport !== null));
+$("blesel").addEventListener("change", () => setBleConnected(bleTransport !== null));
 $("ble-upload").addEventListener("click", bleUpload);
 $("ble-confirm").addEventListener("click", () => confirmActive(bleClient, showBleState, "BLE", "ble"));
 
@@ -495,7 +558,7 @@ let serClient = null;
 function setSerConnected(on) {
   $("ser-connect").disabled = on;
   $("ser-disconnect").disabled = !on;
-  $("ser-upload").disabled = !on || $("serbinfile").files.length === 0;
+  $("ser-upload").disabled = !on || !hasPick("sersel", "serbinfile");
   $("ser-confirm").disabled = !on;
 }
 
@@ -577,7 +640,7 @@ async function showBoardCounters() {
 
 
 async function serUpload() {
-  const file = $("serbinfile").files[0];
+  const [file] = await pickedFiles("sersel", "serbinfile");
   if (!file || !serClient) return;
 
   // 업로드 중에는 확정도 막는다. SMP 는 한 번에 한 요청뿐이라
@@ -640,5 +703,6 @@ async function serUpload() {
 $("ser-connect").addEventListener("click", serConnect);
 $("ser-disconnect").addEventListener("click", serDisconnect);
 $("serbinfile").addEventListener("change", () => setSerConnected(serTransport !== null));
+$("sersel").addEventListener("change", () => setSerConnected(serTransport !== null));
 $("ser-upload").addEventListener("click", serUpload);
 $("ser-confirm").addEventListener("click", () => confirmActive(serClient, showSerState, "시리얼", "ser"));

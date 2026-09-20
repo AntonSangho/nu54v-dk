@@ -1,0 +1,12 @@
+{
+  "examples": [
+    {
+      "name": "dfu",
+      "version": "1.0.10",
+      "hex": "fw/dfu-1.0.10.merged.hex",
+      "hex_size": 855144,
+      "bin": "fw/dfu-1.0.10.signed.bin",
+      "bin_size": 254776
+    }
+  ]
+}
