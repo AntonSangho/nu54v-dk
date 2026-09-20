@@ -337,11 +337,13 @@ def dfu_venv_python():
 
 def cmd_dfu(args, cfg, sdk_dir, env):
     build_dir = args.project / "build"
-    if not (build_dir / "build.ninja").exists():
-        args.pristine = False
-        ret = cmd_build(args, cfg, sdk_dir, env)
-        if ret:
-            return ret
+
+    # 항상 먼저 빌드한다 (fw flash 도 west 가 재빌드한다).
+    # VS Code 태스크가 dependsOn 으로 빌드를 따로 부르지 않아도 되게 한다.
+    args.pristine = False
+    ret = cmd_build(args, cfg, sdk_dir, env)
+    if ret:
+        return ret
 
     image = default_image(build_dir) / "zephyr" / "zephyr.signed.bin"
     if not image.exists():
