@@ -361,11 +361,12 @@ class SmpClient {
       let rsp = null;
       for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-          // 첫 조각은 슬롯을 지우느라 오래 걸린다. 나머지는 짧게 끊고 다시 보낸다
-          // (한 번 놓친 응답을 10 초씩 기다리면 전체가 하염없이 느려진다).
+          // 첫 조각은 슬롯을 지우느라 오래 걸린다 (실측 3.3 초).
+          // 나머지는 실측 왕복이 78 ms, 최대 89 ms 다. 600 ms 면 7 배 여유이고,
+          // 드물게 나는 재전송의 비용이 3 초에서 0.6 초로 준다.
           rsp = await this.request(
             SMP_OP.WRITE, SMP_GROUP.IMAGE, SMP_ID_IMAGE.UPLOAD, payload,
-            off === 0 ? 40000 : 3000);
+            off === 0 ? 40000 : 600);
           break;
         } catch (e) {
           // 보드가 판단해서 거절한 것은 다시 보내도 같다. 바로 알린다.
