@@ -74,6 +74,16 @@ cd firmware/projects/uart
 VS Code 로 프로젝트 폴더를 열고 `Ctrl/Cmd+Shift+B` 빌드, `F5` 디버그.
 자세한 내용은 [docs/03_build_debug_env.md](docs/03_build_debug_env.md).
 
+### 브라우저에서 굽기
+
+<https://chcbaram.github.io/nu54v-dk/> 를 Chrome / Edge 로 연다. 설치할 것이 없다.
+
+USB 케이블만 꽂고 `firmware/projects/<이름>/build/merged.hex` 를 고르면 된다
+(MCUboot + 앱이 합쳐져 있다). 빈 보드도 되고, 디버그가 막힌 보드는 [전체 삭제] 로 되살린다.
+
+> WebUSB 를 쓰므로 **Chrome / Edge / Opera** (데스크톱, Android) 에서만 동작한다.
+> 다른 프로그램(pyOCD, VS Code 디버거)이 프로브를 쥐고 있으면 안 된다.
+
 ### 펌웨어 업데이트 (MCUboot 를 쓰는 프로젝트)
 
 ```sh
