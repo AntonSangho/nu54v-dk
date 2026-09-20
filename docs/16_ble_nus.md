@@ -59,20 +59,28 @@ uartWrite() → bt_nus_send() → TX 특성 notify → 호스트
 
 - BLE 가 준비되면(연결 + notify 켜짐) cli 를 BLE 채널로 넘기고 **프롬프트를 한 번 찍는다**
 - 로컬 VCOM 에 입력이 들어오면 **즉시 되돌아온다** — 원격에 물려 있어도 콘솔을 잃지 않는다
+  (BLE 창과 시리얼 창을 같이 띄워 두면, 시리얼에 글자를 치는 순간 BLE 쪽 출력이 끊긴다)
+- 채널이 바뀌면 **로그 출력도 같이 옮긴다** (`logOpen`)
+- 명령을 실행하는 중에는 채널 전환을 멈춘다. 전환이 끼어들면 `cliKeepLoop()` 이 엉뚱한 포트를 보게 되어
+  반복 명령(`shtc3 read 300`, `adc show` …)이 빠져나오지 못한다
 - notify 가 꺼져 있으면 출력은 버린다 (막히지 않는다)
+
+> 채널 전환은 사용자의 [stm32h5-w6300](https://github.com/chcbaram/stm32h5-w6300) `cli_mgr.c` (2026-08) 를 참조했다.
+> 그쪽은 텔넷(`HW_UART_CH_NET`)과 USB CDC(보율로 CLI/cmd 를 가름)까지 같은 방식으로 전환한다.
 
 ## 3. baram-term 연동 (baram-term 세션 검토 결과)
 
 | 항목 | 결정 |
 |---|---|
-| BLE 지원 | baram-term 은 현재 **pyserial 전용, BLE 없음**. `socket://IP:PORT` 를 포트로 받을 수 있어, PC 쪽 BLE↔TCP 다리를 쓰면 터미널·로그·그래프·외부 제어가 그대로 동작한다 (다리를 만들지, baram-term 에 BLE 를 넣을지는 사용자 결정) |
+| BLE 지원 | **baram-term 에 BLE 를 직접 넣기로 결정됨** (사용자 결정, 2026-09-20). `ble://` 전송(NUS 고정) + 포트 설정 창의 장치 검색. bleak 은 선택 설치, 포트 메뉴의 "BLE 장치 사용" 으로 켠다. 다리 프로그램은 만들지 않는다 |
 | 식별 | 광고에 **NUS UUID**(도구가 거름) + 스캔 응답에 **완전한 이름**(사람이 고름) |
 | 제조사 데이터 | `0xFFFF` + 보드 종류 + 펌웨어 major/minor + **칩 고유 ID 하위 4바이트** — 같은 이름 보드가 여럿일 때 자동 시험에서 고르기 위함 |
 | MTU / PHY | MTU 247, DLE 251, 2M PHY. 23 바이트면 부팅 로그·help 출력에서 패킷 수가 10배 |
 | 연결 간격 | 타이핑 왕복이 간격의 2배 → 활성 15~30 ms. 대기 중에는 늘리되 입력·출력이 생기면 바로 빠르게 (17 ble_power) |
 | 줄끝·프롬프트 | 시리얼과 동일하게 CR + `cli# `. baram-term 의 Tab 자동완성·여러 줄 보내기가 `^\S*# ` 로 프롬프트를 찾는다 |
 | 보안 | 본딩 요구 없음 (`CONFIG_BT_NUS_AUTHEN=n`). 이 SDK 에서는 `BT_NUS_SECURITY_ENABLED` 가 없어졌다 |
-| baram-ctl | 포트 종류와 무관하게 동작. 다리를 쓰면 `--match <TCP 포트>` 로 창을 고른다 |
+| baram-ctl | 포트 종류와 무관하게 동작 (창에 요청만 보내므로) |
+| 포트 저장 형태 | `ble://NU54V-DK` 처럼 이름 기준 (macOS 는 주소가 PC 마다 다름). 이름이 겹치면 칩 ID 하위 4바이트를 덧붙임 |
 
 ## 4. 저전력
 
@@ -90,5 +98,6 @@ uartWrite() → bt_nus_send() → TX 특성 notify → 호스트
 - [x] 호스트 스캔(bleak): 이름 `NU54V-DK`, NUS UUID, 제조사 데이터 `0101005fdf6eb4`
 - [x] 연결 MTU **247**, notify 켠 직후 프롬프트 수신
 - [x] BLE 로 `ble info` / `rtc info` / `adc info` 실행
-- [ ] baram-term 연동 (BLE↔TCP 다리 또는 baram-term BLE 지원 — 사용자 결정)
+- [x] 채널 전환 : BLE ↔ 시리얼, 로그도 따라감
+- [ ] baram-term 의 `ble://` 지원으로 연동 확인 (baram-term 쪽 작업 중)
 - [ ] 소비전류 (17 ble_power)

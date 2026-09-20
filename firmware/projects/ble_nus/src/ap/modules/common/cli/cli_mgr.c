@@ -56,10 +56,16 @@ void cliMgrThread(void *arg1, void *arg2, void *arg3)
 
   while (1)
   {
-    if (is_enable)
+    // is_enable 이 꺼져 있으면 cliMain() 뿐 아니라 채널 전환도 멈춘다.
+    // 명령을 실행하는 중에 채널이 바뀌면 cliKeepLoop() 이 엉뚱한 포트의 입력을 보게 되어
+    // 반복 명령(shtc3 read 300, adc show …)이 빠져나오지 못한다. (stm32h5-w6300 cli_mgr 주석)
+    if (is_enable != true)
     {
-      cliMain();
+      delay(10);
+      continue;
     }
+
+    cliMain();
 
 #ifdef _USE_HW_BLE_NUS
     // 채널 선택 : BLE 가 준비되면(연결 + notify) 그쪽으로, 로컬 입력이 오면 되돌아온다.
@@ -80,7 +86,10 @@ void cliMgrThread(void *arg1, void *arg2, void *arg3)
     if (cliGetPort() != cli_ch)
     {
       cliOpen(cli_ch, cli_baud);
-      cliBegin();       // 바뀐 채널에 프롬프트를 한 번 찍는다 (baram-term 쪽 상태 맞추기)
+#ifdef _USE_HW_LOG
+      logOpen(cli_ch, cli_baud);    // 로그도 cli 채널을 따라간다
+#endif
+      cliBegin();                   // 바뀐 채널에 프롬프트를 한 번 찍는다 (baram-term 쪽 상태 맞추기)
     }
 #endif
 
