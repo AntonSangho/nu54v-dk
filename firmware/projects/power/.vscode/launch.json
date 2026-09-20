@@ -17,7 +17,8 @@
         "gdbPath": "${workspaceFolder}/../../.tools/gdb/arm-zephyr-eabi-gdb.exe"
       },
       "targetId": "nrf54l",
-      "serverArgs": ["--frequency", "4000000"],
+      "serverArgs": ["--frequency", "4000000",
+        "--script", "${workspaceFolder}/../../scripts/pyocd_cortex_debug.py"],
       "svdFile": "${workspaceFolder}/../../.tools/svd/nrf54l15_application.svd",
       "runToEntryPoint": "main",
       "preLaunchTask": "Build",
@@ -37,7 +38,8 @@
         "gdbPath": "${workspaceFolder}/../../.tools/gdb/arm-zephyr-eabi-gdb.exe"
       },
       "targetId": "nrf54l",
-      "serverArgs": ["--frequency", "4000000"],
+      "serverArgs": ["--frequency", "4000000",
+        "--script", "${workspaceFolder}/../../scripts/pyocd_cortex_debug.py"],
       "svdFile": "${workspaceFolder}/../../.tools/svd/nrf54l15_application.svd",
       "showDevDebugOutput": "none"
     }

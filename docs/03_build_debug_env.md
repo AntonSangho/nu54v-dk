@@ -81,6 +81,7 @@ nu54v-dk/
   → SDK 버전을 바꿔도 launch.json 은 수정하지 않는다.
 - IntelliSense 는 `build/compile_commands.json` 을 쓴다 (빌드 후 자동 복사).
 - SWD 는 4 MHz (`--frequency 4000000`). 기본 1 MHz 에서는 GDB `load` 중 probe 타임아웃이 날 수 있었다.
+- `serverArgs` 의 `--script scripts/pyocd_cortex_debug.py` 는 로그 문구 호환용이다 (아래 §8 타임아웃 항목).
 
 ## 5. SDK 버전 변경
 
@@ -107,6 +108,15 @@ launch.json 의 ELF 경로는 `build/${workspaceFolderBasename}/zephyr/zephyr.el
 - Claude 세션은 baram-term 스킬(`baram-ctl`)로 같은 창을 통해 명령을 보낸다 ([05_uart](05_uart.md))
 
 ## 8. 알려진 경고
+
+- `Failed to launch PyOCD GDB Server: Timeout.` : 원인 두 가지.
+  1. **로그 문구 불일치.** cortex-debug 1.12.1 은 서버 기동을 출력 문구로만 판단하는데
+     (`dist/debugadapter.js` → `initMatch()` → `/GDB server started (at|on) port/`),
+     pyOCD 0.36 부터 문구가 `GDB server listening on port N (core N)` 으로 바뀌어 영영 매칭되지 않는다.
+     서버 자체는 정상이다. → `firmware/scripts/pyocd_cortex_debug.py` (pyOCD 사용자 스크립트) 가
+     로그 필터로 문구만 예전 형식으로 되돌린다. launch.json 이 `--script` 로 넘긴다.
+  2. **이전 세션의 pyocd 가 남아 있음.** 고아 프로세스가 프로브와 50000/50001 포트를 잡고 있으면
+     새 서버가 `Unable to claim interface for probe …` 로 뜨지 못한다. → `pkill -f "pyocd gdbserver"`
 
 - `Board ID 5415 is not recognized` / `NRF54L15 is not in a secure state` : pyOCD 정보성 경고, 동작에 영향 없음.
 - `Error during board uninit` : 가끔 `fw flash` 끝에 나오지만 쓰기(`Erased … programmed …`)는 완료된 상태.
