@@ -28,15 +28,50 @@ def log(msg):
     print(f"[dfu] {msg}", flush=True)
 
 
-def find_serial_port():
-    """보드의 cli 포트를 찾는다. 여러 개면 사용자가 --port 로 지정한다."""
-    if sys.platform == "win32":
-        import serial.tools.list_ports
+# 보드의 디버그 프로브(CMSIS-DAP)가 내놓는 USB 식별자
+PROBE_VID = 0x0D28
+PROBE_PID = 0x0204
 
-        ports = [p.device for p in serial.tools.list_ports.comports()]
-    else:
-        ports = sorted(glob.glob("/dev/cu.usbmodem*") + glob.glob("/dev/ttyACM*"))
-    return ports
+
+def find_cli_port():
+    """cli(SMP) 포트를 찾는다.
+
+    프로브 하나가 CDC 를 둘 내놓는다 (VCOM0, VCOM1). 이름 순으로 두 번째가 VCOM1 = cli 다.
+    프로브가 여럿이면 후보를 보여 주고 --port 로 지정하게 한다.
+    """
+    import serial.tools.list_ports
+
+    ports = [p for p in serial.tools.list_ports.comports()
+             if p.vid == PROBE_VID and p.pid == PROBE_PID]
+
+    groups = {}
+    for p in ports:
+        groups.setdefault(p.serial_number, []).append(p)
+
+    candidates = []
+    for plist in groups.values():
+        plist.sort(key=lambda x: x.device)
+        if len(plist) >= 2:
+            candidates.append(plist[1])              # 두 번째 = VCOM1 (cli)
+
+    if len(candidates) == 1:
+        port = candidates[0]
+        log(f"cli 포트 자동 선택 : {port.device} ({port.description})")
+        return port.device
+
+    if len(candidates) > 1:
+        print("[dfu] 보드가 여럿이다. --port 로 지정해라:")
+        for p in candidates:
+            print(f"       {p.device}   {p.description}  sn={p.serial_number}")
+        sys.exit(1)
+
+    # 프로브를 못 찾았으면 예전 방식으로 후보만 보여 준다
+    others = sorted(glob.glob("/dev/cu.usbmodem*") + glob.glob("/dev/ttyACM*"))
+    if others:
+        print("[dfu] 보드의 프로브를 찾지 못했다. --port 로 지정해라:")
+        for d in others:
+            print(f"       {d}")
+    sys.exit("[dfu] 시리얼 포트를 찾지 못했다")
 
 
 def make_transport(args):
@@ -48,16 +83,8 @@ def make_transport(args):
     from smpclient.transport.serial import SMPSerialTransport
 
     port = args.port
-    if port is None:
-        ports = find_serial_port()
-        if len(ports) == 0:
-            sys.exit("[dfu] 시리얼 포트를 찾지 못했다. --port 로 지정해라")
-        if len(ports) > 1:
-            print("[dfu] 포트가 여럿이다. --port 로 지정해라:")
-            for p in ports:
-                print(f"       {p}")
-            sys.exit(1)
-        port = ports[0]
+    if port in (None, "", "auto"):                   # 태스크에서 "auto" 를 넘긴다
+        port = find_cli_port()
     # 기본 프레임 크기로는 큰 이미지가 중간에 멈춘다 (docs/18_dfu.md §7)
     return SMPSerialTransport(max_smp_encoded_frame_size=args.frame), port
 
@@ -140,7 +167,7 @@ def main():
     parser = argparse.ArgumentParser(description="SMP 로 펌웨어 업데이트")
     parser.add_argument("--image", required=True, help="서명된 이미지 (zephyr.signed.bin)")
     parser.add_argument("--transport", choices=["serial", "ble"], default="serial")
-    parser.add_argument("--port", help="시리얼 포트 (없으면 자동 탐색)")
+    parser.add_argument("--port", help="시리얼 포트 (없거나 auto 면 자동 탐색)")
     parser.add_argument("--name", default="NU54V-DK", help="BLE 장치 이름")
     parser.add_argument("--frame", type=int, default=512, help="시리얼 프레임 크기")
     parser.add_argument("--timeout", type=float, default=20.0, help="응답 대기 (초)")

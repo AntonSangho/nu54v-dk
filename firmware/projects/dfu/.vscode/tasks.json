@@ -37,8 +37,15 @@
     },
     {
       "label": "DFU (serial)",
-      "detail": "cli 포트(VCOM1)로 업로드 → test → 리셋 → confirm. baram-term 등 그 포트를 쓰는 프로그램은 먼저 닫아야 한다",
+      "detail": "cli 포트(VCOM1) 자동 탐색 → 업로드 → test → 리셋 → confirm. 그 포트를 쓰는 프로그램(baram-term 등)은 먼저 닫는다",
       "args": ["dfu"],
+      "dependsOn": "Build",
+      "problemMatcher": []
+    },
+    {
+      "label": "DFU (serial, 포트 선택)",
+      "detail": "포트를 직접 고른다. 보드가 여러 대일 때. (Firmware Task Manager 확장이 목록을 띄운다)",
+      "args": ["dfu", "--port", "${input:dfuPort}"],
       "dependsOn": "Build",
       "problemMatcher": []
     },
@@ -74,6 +81,19 @@
       "label": "Env info",
       "args": ["env"],
       "problemMatcher": []
+    }
+  ],
+  // 포트 선택은 Firmware Task Manager 확장이 채운다 (baram-dev.firmware-task-manager).
+  // 확장 없이 실행하면 VS Code 가 입력창을 띄우므로 auto 를 그대로 두면 자동 탐색한다.
+  "inputs": [
+    {
+      "id": "dfuPort",
+      "type": "command",
+      "command": "firmware-task.pickSerialPort",
+      "args": {
+        "placeholder": "cli 포트 (VCOM1) 를 고른다. 취소하면 auto",
+        "filter": "usbmodem|ttyACM|COM"
+      }
     }
   ]
 }
