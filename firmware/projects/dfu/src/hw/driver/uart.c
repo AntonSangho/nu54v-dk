@@ -48,7 +48,7 @@ typedef struct
   struct k_sem   tx_sem;
   struct k_mutex tx_mutex;
 
-  // 조용히 잃는 자리를 드러내기 위한 계수기 (SMP 업로드에서 한 번씩 응답이 빈다)
+  // 조용히 잃는 자리를 드러내기 위한 계수기 (한 바이트만 잃어도 원인이 안 보인다)
   uint32_t       rx_drop_cnt;     // 수신 큐가 꽉 차 버린 바이트
   uint32_t       rx_stop_cnt;     // UARTE 가 수신을 멈췄다 (오버런·프레이밍)
   uint32_t       rx_stop_reason;  // 마지막 멈춤 이유
@@ -69,8 +69,9 @@ typedef struct
 
 /* 수신 알림을 한 곳에서 더 받고 싶은 쪽이 거는 훅 (ISR 문맥에서 불린다).
  *
- * 여러 채널을 함께 기다려야 하는 쪽이 있다 (cli 는 로컬 UART 와 BLE 를 오간다).
- * 어느 채널을 묶을지는 uart 가 정할 일이 아니므로 알림만 넘기고 정책은 맡긴다.
+ * 채널마다 세마포어가 따로 있어 한 번에 한 채널만 기다릴 수 있다.
+ * 여러 채널을 함께 기다리려면 어느 채널을 묶을지 정해야 하는데, 그것은
+ * uart 가 정할 일이 아니다. 알림만 넘기고 판단은 거는 쪽에 맡긴다.
  */
 static uart_rx_notify_t rx_notify_cb = NULL;
 
@@ -423,7 +424,7 @@ void uartEventCallback(const struct device *dev, struct uart_event *evt, void *u
 
     case UART_RX_RDY:
       // 큐가 꽉 차면 qbufferWrite() 는 false 를 돌려주고 그 바이트는 사라진다.
-      // 그대로 두면 SMP 프레임 한 줄이 깨져 응답이 통째로 없어진다 (원인이 안 보인다).
+      // 세지 않으면 위쪽에서는 프레임이 깨진 것으로만 보여 원인을 못 찾는다.
       if (qbufferWrite(&p_hw->rx_q, &evt->data.rx.buf[evt->data.rx.offset],
                        evt->data.rx.len) != true)
       {
