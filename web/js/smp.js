@@ -367,7 +367,9 @@ class SmpClient {
           if (e instanceof SmpError) throw e;
           if (attempt === retries) throw e;
           this.log(`조각 재전송 (${off} 바이트 지점, ${attempt + 1}/${retries}) — ${e.message}`);
-          this.pending = null;                 // 늦게 온 응답은 버린다
+          // 늦게 온 응답은 버린다. 타임아웃이 아니라 보내다 실패한 경우에는
+          // pending 과 그 타이머가 살아 있으므로 abort() 로 같이 치운다.
+          this.abort();
           await new Promise((r) => setTimeout(r, 200));
         }
       }

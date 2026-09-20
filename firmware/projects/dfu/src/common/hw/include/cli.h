@@ -51,6 +51,10 @@ bool cliOpen(uint8_t ch, uint32_t baud);
 bool cliIsBusy(void);
 bool cliOpenLog(uint8_t ch, uint32_t baud);
 bool cliSetRxFilter(cli_rx_filter_t filter);
+
+/* 지정한 채널을 필터로 비운다 (cli 가 보는 채널과 무관하게).
+ * 필터가 가져가지 않은 바이트를 만나면 false — 사람이 친 입력이라는 뜻이다. */
+bool cliFilterPump(uint8_t ch);
 bool cliMain(void);
 void cliPrintf(const char *fmt, ...);
 bool cliAdd(const char *cmd_str, void (*p_func)(cli_args_t *));

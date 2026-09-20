@@ -67,6 +67,13 @@ typedef struct
   struct k_sem   rx_sem;          // 수신 알림 (하드웨어 콜백 / 드라이버의 uartRxNotify)
 } uart_tbl_t;
 
+/* 수신 알림을 한 곳에서 더 받고 싶은 쪽이 거는 훅 (ISR 문맥에서 불린다).
+ *
+ * 여러 채널을 함께 기다려야 하는 쪽이 있다 (cli 는 로컬 UART 와 BLE 를 오간다).
+ * 어느 채널을 묶을지는 uart 가 정할 일이 아니므로 알림만 넘기고 정책은 맡긴다.
+ */
+static uart_rx_notify_t rx_notify_cb = NULL;
+
 
 static const char *uart_name[UART_MAX_CH] =
 {
@@ -272,6 +279,16 @@ void uartRxNotify(uint8_t ch)
   if (ch >= UART_MAX_CH) return;
 
   k_sem_give(&uart_tbl[ch].rx_sem);
+
+  if (rx_notify_cb != NULL)
+  {
+    rx_notify_cb(ch);
+  }
+}
+
+void uartSetRxNotify(uart_rx_notify_t cb)
+{
+  rx_notify_cb = cb;
 }
 
 bool uartFlush(uint8_t ch)

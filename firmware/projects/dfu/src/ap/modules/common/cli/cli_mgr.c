@@ -21,7 +21,33 @@ static uint8_t  cli_ch    = HW_UART_CH_CLI;
 static uint32_t cli_baud  = 115200;
 static bool     is_enable = true;
 
-static void cliMgrThread(void *arg1, void *arg2, void *arg3);
+/* 여러 채널 중 어디에 입력이 와도 깨어나기 위한 세마포어.
+ *
+ * cli 는 로컬 UART 와 BLE 를 오가며 쓴다. 한 채널만 기다리면 다른 채널로 온
+ * 입력을 타임아웃까지 못 본다 (BLE 가 붙어 있으면 시리얼 SMP 왕복이 매번
+ * CLI_MGR_IDLE_WAIT_MS 씩 걸렸다). 어느 채널을 묶을지는 여기서 정한다. */
+static struct k_sem rx_sem;
+
+static void cliMgrRxNotify(uint8_t ch);
+
+static /* ISR 문맥에서 불린다. 어느 채널이든 알림은 하나로 모은다. */
+void cliMgrRxNotify(uint8_t ch)
+{
+  (void)ch;
+  k_sem_give(&rx_sem);
+}
+
+/* 지금 봐야 할 채널들에 처리할 입력이 있나 */
+static bool cliMgrHasInput(void)
+{
+  if (cliAvailable() > 0) return true;
+#ifdef _USE_HW_BLE_NUS
+  if (uartAvailable(HW_UART_CH_CLI) > 0) return true;
+#endif
+  return false;
+}
+
+void cliMgrThread(void *arg1, void *arg2, void *arg3);
 
 static K_THREAD_STACK_DEFINE(cli_stack, _HW_DEF_RTOS_THREAD_MEM_CLI);
 static struct k_thread cli_thread;
@@ -34,6 +60,9 @@ bool cliMgrInit(void)
   bool ret;
   k_tid_t tid;
 
+
+  k_sem_init(&rx_sem, 0, 1);
+  uartSetRxNotify(cliMgrRxNotify);
 
   ret = cliOpen(cli_ch, cli_baud);
 
@@ -68,6 +97,18 @@ void cliMgrThread(void *arg1, void *arg2, void *arg3)
     cliMain();
 
 #ifdef _USE_HW_BLE_NUS
+    // 로컬 UART 는 cli 가 어디에 있든 계속 비운다.
+    //
+    // 필터(시리얼 SMP)는 이 포트에 묶여 있다. cli 가 BLE 로 넘어갔다고 이 포트를
+    // 놓아 버리면 SMP 가 cli 의 채널 선택에 끌려다닌다. 필터가 가져가지 않은
+    // 바이트가 나올 때만 — 즉 사람이 친 입력일 때만 — cli 를 이쪽으로 되돌린다.
+    bool is_local_input = false;
+
+    if (cli_ch != HW_UART_CH_CLI && uartAvailable(HW_UART_CH_CLI) > 0)
+    {
+      is_local_input = (cliFilterPump(HW_UART_CH_CLI) != true);
+    }
+
     // 채널 선택 : BLE 가 준비되면(연결 + notify) 그쪽으로, 로컬 입력이 오면 되돌아온다.
     if (bleNusIsReady())
     {
@@ -78,7 +119,7 @@ void cliMgrThread(void *arg1, void *arg2, void *arg3)
       cli_ch = HW_UART_CH_CLI;
     }
 
-    if (uartAvailable(HW_UART_CH_CLI) > 0)
+    if (is_local_input == true || cliAvailable() > 0)
     {
       cli_ch = HW_UART_CH_CLI;
     }
@@ -94,9 +135,14 @@ void cliMgrThread(void *arg1, void *arg2, void *arg3)
 #endif
 
     // 저전력 : 처리할 입력이 없으면 다음 입력이 올 때까지 잠든다.
-    if (cliAvailable() == 0)
+    // 어느 채널이든 수신되면 cliMgrRxNotify() 가 깨운다.
+    if (cliMgrHasInput() != true)
     {
-      uartWaitRx(cli_ch, CLI_MGR_IDLE_WAIT_MS);
+      k_sem_reset(&rx_sem);
+      if (cliMgrHasInput() != true)       // 재우기 직전에 온 것을 놓치지 않는다
+      {
+        k_sem_take(&rx_sem, K_MSEC(CLI_MGR_IDLE_WAIT_MS));
+      }
     }
   }
 }

@@ -91,6 +91,11 @@ typedef struct
 cli_t   cli_node;
 static cli_rx_filter_t rx_filter = NULL;
 
+/* 필터가 가져가지 않은 바이트. cli 가 다음에 처리한다.
+ * 필터에 주려면 큐에서 꺼내야 하는데, 안 가져가면 되돌릴 곳이 없어 여기 둔다. */
+static bool    pend_valid = false;
+static uint8_t pend_data  = 0;
+
 
 
 static bool cliUpdate(cli_t *p_cli, uint8_t rx_data);
@@ -227,11 +232,47 @@ bool cliSetRxFilter(cli_rx_filter_t filter)
   return true;
 }
 
+/*
+ * 지정한 채널을 필터로 비운다.
+ *
+ * 필터(예: 시리얼 SMP)는 **특정 포트에 묶여 있다**. cli 가 BLE 로 넘어가 있어도
+ * 그 포트는 계속 봐야 한다. 그래야 SMP 가 cli 의 채널 선택과 무관하게 돈다.
+ *
+ * 필터가 가져가지 않은 바이트가 나오면 거기서 멈추고 false 를 돌려준다
+ * (사람이 친 입력이라는 뜻). 그 바이트는 pend 에 남아 cliMain() 이 처리한다.
+ */
+bool cliFilterPump(uint8_t ch)
+{
+  if (rx_filter == NULL) return false;
+
+  while (pend_valid != true && uartAvailable(ch) > 0)
+  {
+    uint8_t rx_data = uartRead(ch);
+
+    if (rx_filter(ch, rx_data) != true)
+    {
+      pend_valid = true;
+      pend_data  = rx_data;
+      return false;
+    }
+  }
+
+  return pend_valid != true;
+}
+
 bool cliMain(void)
 {
   if (cli_node.is_open != true)
   {
     return false;
+  }
+
+  // 필터가 돌려보낸 바이트가 먼저다
+  if (pend_valid == true)
+  {
+    pend_valid = false;
+    cliUpdate(&cli_node, pend_data);
+    return true;
   }
 
   if (uartAvailable(cli_node.ch) > 0)

@@ -168,6 +168,15 @@ void cliDfu(cli_args_t *args)
       // frag 은 받은 줄 수, drop 은 줄은 다 받았는데 패킷이 안 된 횟수다.
       // drop 이 오르면 그만큼 호스트가 응답 없이 타임아웃을 봤다는 뜻이다.
       cliPrintf("serial.frag   : %d, drop %d\n", frag_cnt, drop_cnt);
+      {
+        uint32_t rx_avg, rx_max, pr_avg, pr_max;
+
+        dfuSerialGetGap(&rx_avg, &rx_max, &pr_avg, &pr_max);
+        // rx   : 요청 첫 바이트 → 패킷 완성 (받는 데 걸린 시간)
+        // proc : 패킷 완성 → 응답 송신 (mcumgr 처리)
+        cliPrintf("serial.time   : rx %d/%d ms, proc %d/%d ms (평균/최대)\n",
+                  rx_avg, rx_max, pr_avg, pr_max);
+      }
 
       // 마지막으로 버린 줄. 시작줄(06 09)이면 버퍼 할당 실패일 수 있고,
       // 이어짐(04 14)이면 할당은 성공한 뒤라 base64 / 길이 / CRC 쪽이다.

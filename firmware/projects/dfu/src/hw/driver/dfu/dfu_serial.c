@@ -95,6 +95,21 @@ static uint16_t drop_prev_len = 0;       // 바로 앞 줄의 길이
 static uint8_t  prev_mark[2] = {0, };
 static uint16_t prev_len = 0;
 
+// 어느 구간에서 시간이 새는지 잰다 (왕복이 1 초씩 걸리는 원인 찾기).
+//   rx   : 요청 첫 바이트 → 패킷 완성 (받는 데 걸린 시간)
+//   proc : 패킷 완성 → 응답 송신 (mcumgr 이 처리하는 시간)
+static uint32_t t_first_byte = 0;
+static uint32_t t_pkt_done   = 0;
+static uint32_t rx_ms_sum = 0, rx_ms_max = 0, rx_ms_cnt = 0;
+static uint32_t pr_ms_sum = 0, pr_ms_max = 0, pr_ms_cnt = 0;
+
+static void gapAdd(uint32_t *p_sum, uint32_t *p_max, uint32_t *p_cnt, uint32_t ms)
+{
+  *p_sum += ms;
+  *p_cnt += 1;
+  if (ms > *p_max) *p_max = ms;
+}
+
 
 
 
@@ -147,6 +162,15 @@ uint16_t dfuSerialGetDropFrag(uint8_t **pp_buf)
 {
   if (pp_buf != NULL) *pp_buf = drop_buf;
   return drop_len;
+}
+
+void dfuSerialGetGap(uint32_t *p_rx_avg, uint32_t *p_rx_max,
+                     uint32_t *p_pr_avg, uint32_t *p_pr_max)
+{
+  if (p_rx_avg != NULL) *p_rx_avg = (rx_ms_cnt > 0) ? rx_ms_sum / rx_ms_cnt : 0;
+  if (p_rx_max != NULL) *p_rx_max = rx_ms_max;
+  if (p_pr_avg != NULL) *p_pr_avg = (pr_ms_cnt > 0) ? pr_ms_sum / pr_ms_cnt : 0;
+  if (p_pr_max != NULL) *p_pr_max = pr_ms_max;
 }
 
 void dfuSerialGetDropInfo(int32_t *p_nb_len, uint16_t *p_pkt_len,
@@ -223,6 +247,8 @@ bool dfuSerialFeed(uint8_t rx_data)
       if (p_nb != NULL)
       {
         rx_pkt_cnt++;
+        t_pkt_done = millis();
+        gapAdd(&rx_ms_sum, &rx_ms_max, &rx_ms_cnt, t_pkt_done - t_first_byte);
         smp_rx_req(&transport, p_nb);
       }
       else if (rx_ctxt.nb == NULL)
@@ -278,6 +304,10 @@ bool dfuSerialFeed(uint8_t rx_data)
         (first == DFU_SERIAL_MARK_FRAG_1 && rx_data == DFU_SERIAL_MARK_FRAG_2))
     {
       is_frame = true;
+      if (first == DFU_SERIAL_MARK_PKT_1)      // 요청의 첫 줄
+      {
+        t_first_byte = millis();
+      }
       frag_len = 0;
       frag_buf[frag_len++] = first;            // 표식도 해독기에 넘긴다
       frag_buf[frag_len++] = rx_data;
@@ -310,6 +340,8 @@ int dfuSerialTxCb(const void *p_data, int length)
 int dfuSerialTxPkt(struct net_buf *p_nb)
 {
   int ret;
+
+  gapAdd(&pr_ms_sum, &pr_ms_max, &pr_ms_cnt, millis() - t_pkt_done);
 
   ret = mcumgr_serial_tx_pkt(p_nb->data, p_nb->len, dfuSerialTxCb);
   if (ret == 0)
