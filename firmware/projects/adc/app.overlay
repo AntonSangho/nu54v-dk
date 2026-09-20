@@ -6,3 +6,8 @@
 &adc {
 	status = "okay";
 };
+
+/* Qwiic(J5) I2C : SHTC3, PMIC */
+&i2c21 {
+	status = "okay";
+};

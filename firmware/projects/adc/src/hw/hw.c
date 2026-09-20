@@ -27,6 +27,8 @@ bool hwInit(void)
   resetInit();
   powerInit();
   buttonInit();
+  i2cInit();
+  shtc3Init();
   adcInit();
   tempInit();
 

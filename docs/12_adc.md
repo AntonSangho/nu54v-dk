@@ -1,6 +1,8 @@
 # 12. ADC · 칩 온도 (`firmware/projects/adc`)
 
 power 예제(11) 위에 **adc** 모듈(배터리 전압)과 **temp** 모듈(칩 내부 온도)을 올린다.
+여기서 06 i2c / 07 shtc3 모듈도 다시 합쳐, 지금까지 만든 모듈이 모두 들어 있다
+(`led uart cli log button reset power i2c shtc3 adc temp module`).
 
 ## 1. 하드웨어
 
@@ -16,7 +18,10 @@ VBAT ─ R8 470K ─┬─ P1.12 (AIN5)
 | 설정 | gain 1/4, 내부 기준 0.9 V → 풀스케일 3.6 V (입력 최대 4.2 × 0.68 = 2.86 V) |
 | 획득 시간 | **40 µs** (nRF54L SAADC 최대). 분압기 출력 임피던스가 320 kΩ 이라 기본 10 µs 로는 낮게 읽힌다 |
 | 오버샘플링 | DTS `zephyr,oversampling = <4>` (하드웨어 16회) + 소프트웨어 평균 16회 |
-| 칩 온도 | `&temp` (nordic,nrf-temp), Zephyr sensor API `SENSOR_CHAN_DIE_TEMP` |
+| 칩 온도 | **nRF54L15 칩 내부** TEMP (`&temp`, SoC dtsi 의 `temp@d7000`), Zephyr sensor API `SENSOR_CHAN_DIE_TEMP` |
+
+칩 내부 TEMP 는 다이 온도라 주변 온도보다 높게 나온다 (실측 34 ℃ vs SHTC3 28 ℃).
+주변 온도가 필요하면 Qwiic 의 SHTC3(07)를, 칩 발열/온도 보정이 필요하면 내부 TEMP 를 쓴다. 보드에는 별도 온도 센서 부품이 없다.
 
 채널 정의는 보드 DTS(`zephyr,user` io-channels + `&adc channel@5`)에 있고, 프로젝트 `app.overlay` 가 `&adc` 를 켠다.
 
@@ -76,5 +81,6 @@ cli# temp show         계속 표시
 
 - [x] 빌드: FLASH 73 KB / RAM 24.8 KB
 - [x] `adc info` : 배터리 연결 시 3.898 V (±2 mV), 배터리 없을 때 4.04~4.13 V (§4)
-- [x] `temp info` : 33.75 ~ 34.25 ℃
+- [x] `temp info` : 33.75 ~ 34.25 ℃ (같은 시각 SHTC3 는 28.3 ℃)
+- [x] i2c / shtc3 합친 뒤에도 전체 동작 (`help` 명령 13개, `i2c scan`, `shtc3 read`, `adc info`, `temp info`)
 - [ ] 충전 상태와 교차 확인 (13 pmic : 충전 중/완료에 따른 전압 변화)

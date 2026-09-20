@@ -36,6 +36,13 @@
 #define      HW_LOG_BOOT_BUF_MAX    2048
 #define      HW_LOG_LIST_BUF_MAX    4096
 
+#define _USE_HW_I2C
+#define      HW_I2C_MAX_CH          1                 // _DEF_I2C1 : i2c21 (Qwiic J5, PMIC)
+
+#define _USE_HW_SHTC3
+#define      HW_SHTC3_I2C_CH        _DEF_I2C1
+#define      HW_SHTC3_I2C_ADDR      0x70
+
 #define _USE_HW_ADC
 #define      HW_ADC_MAX_CH          ADC_PIN_MAX
 
@@ -56,6 +63,8 @@
 #define _USE_CLI_HW_LOG             1
 #define _USE_CLI_HW_RESET           1
 #define _USE_CLI_HW_POWER           1
+#define _USE_CLI_HW_I2C             1
+#define _USE_CLI_HW_SHTC3           1
 #define _USE_CLI_HW_ADC             1
 #define _USE_CLI_HW_TEMP            1
 #define _USE_CLI_HW_BUTTON          1

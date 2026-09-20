@@ -14,6 +14,8 @@ extern "C" {
 #include "log.h"
 #include "reset.h"
 #include "power.h"
+#include "i2c.h"
+#include "shtc3.h"
 #include "adc.h"
 #include "temp.h"
 #include "button.h"
