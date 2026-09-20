@@ -45,6 +45,7 @@ bool        bleSetDeviceName(const char *p_name);
 bool bleAdvInit(void);
 bool bleAdvStart(void);
 bool bleAdvStop(void);
+void bleAdvSetStopped(void);    // 연결되어 스택이 광고를 멈췄음을 알린다
 bool bleAdvIsRunning(void);
 #endif
 

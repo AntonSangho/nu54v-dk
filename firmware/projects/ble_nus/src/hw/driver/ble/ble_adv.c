@@ -71,13 +71,19 @@ bool bleAdvInit(void)
   return true;
 }
 
+// 연결되면 스택이 광고를 멈춘다. is_adv 를 그대로 두면 끊긴 뒤 bleAdvStart() 가
+// "이미 광고 중" 으로 보고 다시 켜지 않는다 → 연결 상태를 ble.c 가 여기로 알려 준다.
+//
+void bleAdvSetStopped(void)
+{
+  is_adv = false;
+}
+
 bool bleAdvStart(void)
 {
   int err;
   struct bt_le_adv_param param = *BT_LE_ADV_PARAM(BT_LE_ADV_OPT_CONN,
                                                   BLE_ADV_INT_MIN, BLE_ADV_INT_MAX, NULL);
-
-  if (is_adv) return true;
 
   err = bt_le_adv_start(&param, adv_data, ARRAY_SIZE(adv_data), scan_data, ARRAY_SIZE(scan_data));
   if (err && err != -EALREADY)

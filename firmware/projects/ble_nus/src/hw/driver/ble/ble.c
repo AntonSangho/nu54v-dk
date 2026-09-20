@@ -29,6 +29,9 @@
 static void cliBle(cli_args_t *args);
 #endif
 static void bleConnected(struct bt_conn *p_conn, uint8_t err);
+#ifdef _USE_HW_BLE_PERIPHERAL
+static void bleAdvRestartWork(struct k_work *p_work);
+#endif
 static void bleDisconnected(struct bt_conn *p_conn, uint8_t reason);
 
 
@@ -38,6 +41,12 @@ extern uint32_t _eble_svc;
 static bool            is_init = false;
 static struct bt_conn *p_cur_conn = NULL;
 static char            device_name[32] = HW_BLE_DEVICE_NAME;
+
+#ifdef _USE_HW_BLE_PERIPHERAL
+// 연결 해제 콜백 안에서 bt_le_adv_start() 를 부르면 -ENOMEM 이 난다.
+// 그 시점에는 연결 객체가 아직 정리되지 않았다 → 워크큐로 미뤄서 시작한다.
+static K_WORK_DEFINE(adv_restart_work, bleAdvRestartWork);
+#endif
 
 static struct bt_conn_cb conn_cb =
 {
@@ -145,6 +154,10 @@ void bleConnected(struct bt_conn *p_conn, uint8_t err)
 
   p_cur_conn = bt_conn_ref(p_conn);
 
+#ifdef _USE_HW_BLE_PERIPHERAL
+  bleAdvSetStopped();     // 연결되면 스택이 광고를 멈춘다
+#endif
+
   for (int i = 0; i < svc_count; i++)
   {
     if (p_svc[i].connected != NULL)
@@ -175,9 +188,18 @@ void bleDisconnected(struct bt_conn *p_conn, uint8_t reason)
   }
 
 #ifdef _USE_HW_BLE_PERIPHERAL
-  bleAdvStart();      // 끊기면 다시 광고
+  bleAdvSetStopped();
+  k_work_submit(&adv_restart_work);      // 끊기면 다시 광고 (연결 객체 정리 뒤에)
 #endif
 }
+
+
+#ifdef _USE_HW_BLE_PERIPHERAL
+void bleAdvRestartWork(struct k_work *p_work)
+{
+  bleAdvStart();
+}
+#endif
 
 
 #if CLI_USE(HW_BLE)

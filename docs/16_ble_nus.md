@@ -82,7 +82,18 @@ uartWrite() → bt_nus_send() → TX 특성 notify → 호스트
 | baram-ctl | 포트 종류와 무관하게 동작 (창에 요청만 보내므로) |
 | 포트 저장 형태 | `ble://NU54V-DK` 처럼 이름 기준 (macOS 는 주소가 PC 마다 다름). 이름이 겹치면 칩 ID 하위 4바이트를 덧붙임 |
 
-## 4. 저전력
+## 4. 연결이 끊기면 다시 광고 (실기에서 잡은 것)
+
+끊긴 뒤 광고가 살아나지 않았다. 두 가지가 겹쳐 있었다.
+
+1. 연결되면 **스택이 광고를 멈춘다**. `is_adv` 플래그를 그대로 두면 `bleAdvStart()` 가 "이미 광고 중" 으로 보고 아무것도 하지 않는다
+   → 연결 콜백에서 `bleAdvSetStopped()` 로 알려 준다.
+2. **연결 해제 콜백 안에서 `bt_le_adv_start()` 를 부르면 `-ENOMEM`(-12) 이 난다.** 그 시점에는 연결 객체가 아직 정리되지 않았다
+   → 시스템 워크큐(`k_work`)로 미뤄서 시작한다.
+
+로그에 `[E_] bleAdvStart() : -12` 가 남아 원인을 찾았다. 연결·해제를 반복해도 매번 광고가 돌아오는 것을 확인했다.
+
+## 5. 저전력
 
 | 항목 | 내용 |
 |---|---|
@@ -91,13 +102,14 @@ uartWrite() → bt_nus_send() → TX 특성 notify → 호스트
 | 수신 | notify 콜백에서 qbuffer 에 넣고 `uartRxNotify()` 로 깨운다 (폴링 없음) |
 | 크기 | BLE 를 켜면 FLASH +130 KB, RAM +25 KB (226 KB / 50 KB) |
 
-## 5. 검증 결과 (2026-09-20, NCS v3.4.1, macOS)
+## 6. 검증 결과 (2026-09-20, NCS v3.4.1, macOS)
 
 - [x] 빌드: FLASH 226 KB / RAM 50 KB
 - [x] `ble info` : 광고 동작, 서비스 목록에 `nus`
 - [x] 호스트 스캔(bleak): 이름 `NU54V-DK`, NUS UUID, 제조사 데이터 `0101005fdf6eb4`
 - [x] 연결 MTU **247**, notify 켠 직후 프롬프트 수신
-- [x] BLE 로 `ble info` / `rtc info` / `adc info` 실행
+- [x] BLE 로 `ble info` / `rtc info` / `adc info` / `log info` / `nvs set` 실행
+- [x] 연결 → 해제 → **재광고** → 재연결 (2회 반복)
 - [x] 채널 전환 : BLE ↔ 시리얼, 로그도 따라감
 - [ ] baram-term 의 `ble://` 지원으로 연동 확인 (baram-term 쪽 작업 중)
 - [ ] 소비전류 (17 ble_power)
