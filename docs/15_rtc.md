@@ -72,10 +72,29 @@ Zephyr 에는 반대로 "리셋해도 uptime 이 0 이 안 된다"는 이슈([#8
 
 - nrfx/Zephyr 코드에 SYSCOUNTER 를 지우는 곳이 없다 (`nrfx_grtc_init`, `nrfx_grtc_syscounter_start` 모두 CLEAR 태스크를 부르지 않음)
 - `z_nrf_grtc_timer_read()` 는 시작값을 빼지 않은 **원시 카운터**를 준다
-- 데이터시트가 말하는 "내부 저주파 타이머"(`TASKS_START`)를 켜 봤다 — rtcInit 에서, 그리고 커널보다 먼저인 보드 초기화에서 — **결과는 같았다**. 효과가 확인되지 않아 되돌렸다
+- **Zephyr 버전 차이가 아니다** : NCS v3.3.0(Zephyr 4.3.99)과 v3.4.1(Zephyr 4.4.2)의 `nrf_grtc_timer.c` 가 완전히 동일하다.
+  SoC 초기화와 MDK `SystemInit` 에도 GRTC 를 건드리는 곳이 없다
+- 데이터시트가 말하는 "내부 저주파 타이머"(`TASKS_START`)를 켜 봤다 — rtcInit, 커널보다 먼저인 보드 초기화,
+  그리고 `STATUS.LFTIMER.READY` 를 확인한 뒤(데이터시트 8.10.6 의 조건) — **세 경우 모두 결과가 같았다**
 - 디버거 연결 여부와도 무관했다
 
-원인은 아직 모른다. 다만 보존 RAM 방식으로 시계는 정상 동작하므로 여기서 멈춘다.
+부팅 직후 레지스터 값 (`MODE` 0x510, `STATUS.LFTIMER` 0x6B0, `CLKCFG` 0x718) 은 정상이다.
+
+```
+MODE          : 0x00000003 (AUTOEN 1, SYSCOUNTEREN 1)
+STATUS.LFTIMER: 0x00000001 (READY 1)
+CLKCFG        : 0x00000001
+```
+
+남은 가설은 "Zephyr 초기화가 `MODE.SYSCOUNTEREN` 을 잠깐 껐다 켜는데 그때 값이 날아간다" 이다.
+확인하려고 CLI 에서 껐다 켜 봤더니 **보드가 멈췄다** — 커널 시계가 이 카운터를 쓰기 때문이다. 그래서 이 방법으로는 확인할 수 없다.
+(`nrfx_grtc_init()` 안의 `nrfy_grtc_sys_counter_set(NRF_GRTC, false)`)
+
+원인은 아직 모른다. 보존 RAM 방식으로 시계가 정상 동작하므로 여기서 멈춘다.
+더 파려면 Nordic 에 문의하는 편이 빠르다 — 재현은 `rtc info` 의 `now` 값을 `reset run` 전후로 비교하면 된다.
+
+> ⚠ `TASKS_START` 를 커널 시작 전에 거는 것은 위험하다. 데이터시트 8.10.1 : "The clock source cannot be
+> changed after GRTC is started" — Zephyr 가 LFXO 를 고르기 전에 시작해 버리면 클럭 소스 선택을 막는다.
 
 ## 4. 로그 타임스탬프
 
