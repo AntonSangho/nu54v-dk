@@ -39,6 +39,16 @@ function toBase64(bytes) {
   return btoa(s);
 }
 
+/* 바이트열을 글자 하나당 한 바이트인 문자열로 (CR 은 버린다) */
+function latin1(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 4096) {
+    const part = bytes.subarray(i, i + 4096);
+    s += String.fromCharCode.apply(null, part);
+  }
+  return s.replace(/\r/g, "");
+}
+
 function fromBase64(str) {
   const bin = atob(str);
   const out = new Uint8Array(bin.length);
@@ -66,7 +76,13 @@ class SerialSmpTransport {
 
   async connect() {
     this.port = await navigator.serial.requestPort();
-    await this.port.open({ baudRate: 115200 });
+
+    // 읽기 버퍼를 키운다.
+    //
+    // Chrome 의 기본값은 255 바이트고, 넘치면 **받은 데이터를 버린다**.
+    // 업로드 중에는 응답이 쉴 새 없이 오는데 그 사이 화면 갱신 등으로 잠깐만 늦어도
+    // 응답이 통째로 사라진다 (브라우저에서만 "응답이 오지 않는다" 가 났던 이유).
+    await this.port.open({ baudRate: 115200, bufferSize: 16384 });
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
     this.readLoop();
@@ -100,14 +116,18 @@ class SerialSmpTransport {
    * cli 출력이 섞여 오므로 표식으로 시작하는 줄만 본다.
    */
   receive(chunk) {
-    for (const b of chunk) {
-      if (b === 0x0a) {                       // 줄 끝
-        this.handleLine(this.line);
-        this.line = "";
-        continue;
-      }
-      if (b === 0x0d) continue;               // CR 은 버린다
-      this.line += String.fromCharCode(b);
+    // 바이트마다 문자열을 붙이면 느리다. 줄 단위로 잘라서 한 번에 붙인다.
+    let start = 0;
+    for (let i = 0; i < chunk.length; i++) {
+      if (chunk[i] !== 0x0a) continue;        // 줄 끝을 찾는다
+
+      this.line += latin1(chunk.subarray(start, i));
+      this.handleLine(this.line);
+      this.line = "";
+      start = i + 1;
+    }
+    if (start < chunk.length) {
+      this.line += latin1(chunk.subarray(start));
     }
   }
 
