@@ -266,6 +266,32 @@ def signing_key_arg(project):
     return [f'-DSB_CONFIG_BOOT_SIGNATURE_KEY_FILE="{key.as_posix()}"']
 
 
+# MCUboot 를 쓰는 프로젝트는 부트로더와 앱을 합친 hex 를 만들어 둔다.
+#
+# 둘을 따로 굽는 것은 번거롭고, 중간에 멈추면 보드가 부팅할 이미지를 못 찾아
+# 패닉 상태가 된다 (이 보드에서는 그러면 SWD 까지 막힌다 — docs/18_dfu.md).
+# 웹 도구나 드래그앤드롭처럼 파일 하나만 받는 곳에서도 쓴다.
+def make_merged_hex(build_dir, env):
+    mcuboot = build_dir / "mcuboot" / "zephyr" / "zephyr.hex"
+    app = default_image(build_dir) / "zephyr" / "zephyr.signed.hex"
+    merged = build_dir / "merged.hex"
+
+    if not (mcuboot.exists() and app.exists()):
+        return
+
+    script = (
+        "from intelhex import IntelHex;"
+        "h = IntelHex(r'%s');"
+        "h.merge(IntelHex(r'%s'), overlap='error');"
+        "h.write_hex_file(r'%s')" % (mcuboot, app, merged)
+    )
+    ret = subprocess.call([sys.executable, "-c", script], env=env)
+    if ret == 0:
+        log(f"합친 이미지: {merged.name} (MCUboot + 앱)")
+    else:
+        log("경고: 합친 이미지를 만들지 못했다 (intelhex 없음?)")
+
+
 def cmd_build(args, cfg, sdk_dir, env):
     update_tools(sdk_dir, env)
     project = args.project
@@ -281,6 +307,7 @@ def cmd_build(args, cfg, sdk_dir, env):
         src = default_image(build_dir) / "compile_commands.json"
         if src.exists():
             shutil.copyfile(src, build_dir / "compile_commands.json")
+        make_merged_hex(build_dir, env)
     return ret
 
 

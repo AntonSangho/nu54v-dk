@@ -363,7 +363,54 @@ dfu info    : slot0.flags : active,confirmed
 - [ ] `slot1.flags` 의 pending 표시 (MCUboot 의 swap state 는 공개 API 가 없다. mcumgr `image list` 로 본다)
 - [ ] 해시 표시 (같은 이유. 필요하면 mcumgr 쪽을 쓴다)
 
-## 7. 호스트 도구
+## 8. 업데이트하기 — `fw dfu` / VS Code 태스크
+
+```sh
+cd firmware/projects/dfu
+../../scripts/fw dfu                      # 시리얼(cli 포트). 포트가 여럿이면 --port 로 지정
+../../scripts/fw dfu --transport ble      # BLE
+../../scripts/fw dfu --no-confirm         # 확정하지 않는다 (리셋하면 이전 버전으로 복귀)
+```
+
+한 번에 **업로드 → test 표시 → 리셋 → 다시 연결 → confirm** 까지 한다.
+
+### 무엇이 올라가나 — `fw flash` 와 `fw dfu` 는 다르다
+
+| | 굽는 것 | 경로 | 쓰는 때 |
+|---|---|---|---|
+| `fw flash` | **MCUboot + 앱** (두 이미지) | SWD (프로브) | 빈 보드, 부트로더 변경, 복구 |
+| `fw dfu` | **앱만** (`zephyr.signed.bin` → slot1) | SMP (시리얼 / BLE) | 평소 업데이트 |
+
+**DFU 로는 MCUboot 자신을 바꿀 수 없다.** 부트로더가 자기를 덮어쓰는 셈이기 때문이다.
+서명 키나 파티션을 바꿨다면 `fw flash` 로 다시 구워야 한다.
+
+빌드하면 **`build/merged.hex`** (MCUboot + 앱) 도 함께 만든다. 파일 하나만 받는 곳
+(웹 도구, 드래그앤드롭)에서 쓴다.
+
+> **MCUboot 만 따로 굽지 않는다.** 부팅할 앱이 없으면 MCUboot 가 이미지를 못 찾고 멈추는데,
+> 이 보드는 타깃 펌웨어가 그런 상태(패닉·폴트)에 빠지면 **SWD 접근까지 막힌다**.
+> 빠져나오려면 CTRL-AP 전체 삭제가 필요하다 (`pyocd erase --mass`, 또는 웹 도구의 [전체 삭제]).
+
+VS Code 태스크 (모두 빌드를 먼저 한다)
+
+| 태스크 | 굽는 것 | 포트 |
+|---|---|---|
+| **Flash (SWD, MCUboot + 앱)** | 둘 다 | 프로브 |
+| **DFU (serial)** | 앱만 | 자동 탐색 |
+| **DFU (serial, 포트 선택)** | 앱만 | 목록에서 고른다 |
+| **DFU (BLE)** | 앱만 | — |
+
+- 호스트 도구는 `firmware/.tools/venv` 에 처음 한 번만 설치한다 (`smpclient`). SDK 툴체인은 건드리지 않는다
+- **버전을 올려야 한다.** 같은 버전이면 타깃이 거부한다 (`VERSION` 파일)
+- 시리얼 프레임 크기는 512 로 고정해서 보낸다 (기본값이면 26 KB 부근에서 멈춘다)
+
+> **주의 — 포트를 쓰는 프로그램을 먼저 닫는다.**
+> SMP 가 cli 포트에 얹혀 있으므로, baram-term 등이 그 포트를 열고 있으면 두 프로세스가 같은 포트를 읽게 되어
+> SMP 응답을 나눠 가진다. baram-term 이면 `baram-ctl release` → 업데이트 → `baram-ctl resume`.
+
+실측 : 시리얼 249 KB / 44 초, BLE 249 KB / 15.8 초.
+
+## 9. 호스트 도구
 
 | 도구 | 비고 |
 |---|---|

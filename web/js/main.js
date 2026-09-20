@@ -30,6 +30,7 @@ function setConnected(on) {
   $("read").disabled = !on;
   $("reset").disabled = !on;
   $("recover").disabled = !on;
+  $("erase").disabled = !on;
   $("program").disabled = !on || $("hexfile").files.length === 0;
 }
 
@@ -65,6 +66,7 @@ async function connect() {
 
     await target.connect();
     await clearErrors();
+    await prepareDp();
     log("SWD 연결됨", "ok");
 
     setConnected(true);
@@ -102,14 +104,58 @@ async function clearErrors() {
   }
 }
 
+/*
+ * 디버그 포트를 쓸 수 있는 상태로 만든다.
+ *
+ * dapjs 의 connect() 만으로는 부족한 경우가 있다. 앞선 세션이 남긴 오류가 있거나
+ * 디버그 전원이 올라가 있지 않으면 첫 메모리 접근부터 FAULT 가 난다.
+ *
+ *   ABORT(0x00)      : 남은 오류 비트를 모두 지운다
+ *   CTRL/STAT(0x04)  : 디버그·시스템 전원을 올리고 확인될 때까지 기다린다
+ */
+// dapjs 의 readDP/writeDP 는 레지스터의 바이트 주소를 받는다 (인덱스가 아니다)
+const DP_ABORT = 0x00;
+const DP_CTRL_STAT = 0x04;
+const ABORT_ALL = 0x1e;      // STKCMPCLR|STKERRCLR|WDERRCLR|ORUNERRCLR
+const PWRUP_REQ = 0x50000000;
+const PWRUP_ACK = 0xa0000000;
+
+async function prepareDp() {
+  invalidateDapCache(target);          // 캐시가 하드웨어와 어긋나 있을 수 있다
+  await target.writeDP(DP_ABORT, ABORT_ALL);
+  await target.writeDP(DP_CTRL_STAT, PWRUP_REQ);
+
+  for (let i = 0; i < 50; i++) {
+    const stat = await target.readDP(DP_CTRL_STAT);
+    if ((stat & PWRUP_ACK) === PWRUP_ACK) return;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  // dapjs 의 connect() 가 이미 올려 두는 경우가 많다. 확인이 안 돼도 막지는 않는다.
+  log("경고 : 디버그 전원 확인 실패. 그대로 진행한다");
+}
+
+/* 메모리 읽기. 한 번 실패하면 DP 를 정리하고 다시 해 본다. */
+async function readMemRetry(address) {
+  try {
+    return await target.readMem32(address);
+  } catch (e) {
+    await clearErrors();
+    await prepareDp();
+    return await target.readMem32(address);
+  }
+}
+
 /* 코어를 리셋해 멈춘 상태로 만든다. 상태가 꼬였을 때 쓴다. */
 async function recover() {
   try {
-    log("복구 : 오류 지우고 리셋 후 halt");
+    log("복구 : 오류 지우고 디버그 전원 확인, 리셋 후 halt");
     await clearErrors();
+    await prepareDp();
     const flasher = new Flasher(target, log);
-    await flasher.resetHalt();
+    await flasher.ctrlApReset();                 // 코어를 거치지 않는 리셋
+    await target.connect();                      // 리셋 뒤 dapjs 캐시를 다시 맞춘다
     await clearErrors();
+    await prepareDp();
     log("복구됨", "ok");
     await readInfo();
   } catch (e) {
@@ -123,6 +169,7 @@ async function readInfo() {
     const dpid = await target.readDP(0);           // DPIDR
     $("i-idcode").textContent = hex32(dpid);
 
+    await readMemRetry(0x00000000);                // 접근이 되는지 먼저 본다
     const info = await readTargetInfo(target);
     $("i-part").textContent = `${info.part} (${info.partName})`;
     $("i-devid").textContent = info.deviceId;
@@ -156,6 +203,9 @@ async function programFiles() {
   const flasher = new Flasher(target, log);
 
   try {
+    // 파일을 다 구운 뒤에 한 번만 리셋한다.
+    // 중간에 리셋하면 dapjs 가 캐시해 둔 SELECT/CSW 가 하드웨어와 어긋나
+    // 다음 파일부터 전송이 깨진다.
     for (const file of files) {
       log(`--- ${file.name} ---`);
       const text = await file.text();
@@ -176,7 +226,11 @@ async function programFiles() {
 
     // 여기서 다시 붙으면 코어가 디버그 모드로 돌아간다.
     // 펌웨어가 제대로 도는지 보려면 붙지 않는 편이 낫다 (LED, 시리얼로 확인).
-    log("굽기 끝. 펌웨어가 돈다 (다시 읽으려면 [다시 읽기])", "ok");
+    // 리셋하면 dapjs 의 캐시(SELECT/CSW)가 하드웨어와 어긋난다. 다시 붙여서 맞춘다.
+    await target.connect();
+    await clearErrors();
+
+    log("굽기 끝. 펌웨어가 돈다 (LED 로 확인. 다시 읽으려면 [다시 읽기])", "ok");
   } catch (e) {
     log(`굽기 실패 : ${e.message || e}`, "err");
   } finally {
@@ -193,6 +247,22 @@ $("connect").addEventListener("click", connect);
 $("disconnect").addEventListener("click", disconnect);
 $("read").addEventListener("click", readInfo);
 $("recover").addEventListener("click", recover);
+
+$("erase").addEventListener("click", async () => {
+  if (!confirm("칩 전체를 지운다. 펌웨어가 모두 사라진다. 계속할까?")) return;
+  try {
+    log("전체 삭제 (CTRL-AP)");
+    const flasher = new Flasher(target, log);
+    await flasher.massErase();
+    await target.connect();                      // 리셋 뒤 dapjs 캐시를 다시 맞춘다
+    await clearErrors();
+    await prepareDp();
+    log("전체 삭제 완료. 이제 다시 구울 수 있다", "ok");
+    await readInfo();
+  } catch (e) {
+    log(`전체 삭제 실패 : ${e.message || e}`, "err");
+  }
+});
 $("reset").addEventListener("click", resetTarget);
 
 navigator.usb?.addEventListener("disconnect", (e) => {

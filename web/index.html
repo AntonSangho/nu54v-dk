@@ -99,15 +99,20 @@
       <button id="read" disabled>다시 읽기</button>
       <button id="reset" disabled>리셋</button>
       <button id="recover" disabled>복구</button>
+      <button id="erase" disabled>전체 삭제</button>
     </div>
   </div>
 
   <div class="card">
     <h2>3. 펌웨어 굽기 (SWD)</h2>
     <p class="note" style="margin-top:0">
-      MCUboot 와 앱 둘 다 구울 수 있다. 빈 보드도 된다.
-      <code>firmware/projects/&lt;이름&gt;/build/</code> 아래의 <code>.hex</code> 를 고른다
-      (<code>mcuboot/zephyr/zephyr.hex</code>, <code>&lt;앱&gt;/zephyr/zephyr.signed.hex</code>).
+      <b><code>firmware/projects/&lt;이름&gt;/build/merged.hex</code></b> 를 고른다.
+      MCUboot 와 앱이 합쳐져 있어 한 번에 굽는다. 빈 보드도 된다.
+    </p>
+    <p class="note">
+      MCUboot 를 쓰지 않는 예제는 <code>build/&lt;이름&gt;/zephyr/zephyr.hex</code> 를 고른다.
+      <b>MCUboot 만 따로 굽지 않는다</b> — 부팅할 앱이 없으면 보드가 패닉에 빠지고,
+      그 상태에서는 SWD 접근도 막힌다. 그때는 [전체 삭제] 로 빠져나온다.
     </p>
     <div class="row">
       <input type="file" id="hexfile" accept=".hex" multiple>

@@ -27,6 +27,20 @@ const S_HALT = 1 << 17;
 const VC_CORERESET = 1 << 0;
 const SYSRESETREQ = 0x05fa0004;
 
+/*
+ * nRF54L 전용 CTRL-AP (AP #2).
+ *
+ * AIRCR.SYSRESETREQ 나 핀 리셋이 아니라 이쪽으로 리셋해야 한다.
+ * pyOCD 도 같은 방식이다 (Nordic nWP-027). 코어를 거치지 않으므로
+ * 펌웨어가 멈춰 있거나 디버그 상태가 꼬여도 통한다.
+ *
+ * AP 주소는 비트 31:24 에 APSEL 이 들어간다.
+ */
+const CTRL_AP = 0x02000000;
+const CTRL_AP_RESET = 0x000;
+const CTRL_AP_ERASEALL = 0x004;
+const CTRL_AP_ERASEALLSTATUS = 0x008;
+
 
 /* Intel HEX 를 {주소: Uint8Array} 구간 목록으로 바꾼다 */
 function parseIntelHex(text) {
@@ -91,6 +105,19 @@ function toPages(chunks, pageSize) {
 }
 
 
+/*
+ * dapjs 가 캐시해 둔 SELECT / CSW 를 버린다.
+ *
+ * dapjs 는 같은 값을 다시 쓰지 않으려고 이 둘을 기억해 둔다 (writeDPCommand, writeAPCommand).
+ * 그런데 타깃을 리셋하면 하드웨어의 DP/AP 레지스터는 초기화되는데 캐시는 남는다.
+ * 그러면 이후 전송이 엉뚱한 AP·뱅크로 가서 FAULT 가 난다. connect() 도 이것을 지우지 않는다.
+ */
+function invalidateDapCache(target) {
+  target.selectedAddress = undefined;
+  target.cswValue = undefined;
+}
+
+
 class Flasher {
   constructor(target, log) {
     this.target = target;
@@ -104,6 +131,11 @@ class Flasher {
    * BKPT 까지 오지 못한다. pyOCD 도 리셋 후 halt 상태에서 돌린다.
    */
   async resetHalt() {
+    invalidateDapCache(this.target);
+    try {
+      await this.target.clearAbort();
+    } catch (e) { /* 무시 */ }
+
     await this.target.writeMem32(DHCSR, DBGKEY | C_DEBUGEN | C_HALT);
 
     const demcr = await this.target.readMem32(DEMCR);
@@ -119,7 +151,7 @@ class Flasher {
           return;
         }
       } catch (e) {
-        // 리셋 도중에는 읽기가 실패할 수 있다. 다시 시도한다.
+        invalidateDapCache(this.target);   // 리셋 도중에는 읽기가 실패할 수 있다
       }
     }
     throw new Error("리셋 후 halt 되지 않았다");
@@ -140,13 +172,36 @@ class Flasher {
     // 디버그 접근(AHB-AP)이 막힌 상태가 된다 ("No cores were discovered").
     await this.target.writeMem32(DHCSR, DBGKEY);
 
-    // 프로브의 하드웨어 리셋을 쓴다. AIRCR.SYSRESETREQ 보다 프로브 쪽 처리가 확실하다.
-    try {
-      await this.target.reset();
-    } catch (e) {
-      await this.target.writeMem32(AIRCR, SYSRESETREQ);            // 안 되면 소프트 리셋
+    await this.ctrlApReset();
+  }
+
+  /* CTRL-AP 로 리셋한다 (pyOCD 와 같은 값) */
+  async ctrlApReset() {
+    invalidateDapCache(this.target);
+    await this.target.writeAP(CTRL_AP | CTRL_AP_RESET, 2);
+    await this.target.writeAP(CTRL_AP | CTRL_AP_RESET, 0);
+    await new Promise((r) => setTimeout(r, 300));
+    invalidateDapCache(this.target);              // 리셋으로 하드웨어가 초기화됐다
+  }
+
+  /*
+   * 칩 전체를 지운다 (CTRL-AP ERASEALL).
+   *
+   * 코어를 거치지 않아서, 디버그 접근이 막힌 상태("No cores were discovered")에서
+   * 빠져나오는 확실한 방법이다. UICR 까지 지워진다.
+   */
+  async massErase() {
+    invalidateDapCache(this.target);
+    await this.target.writeAP(CTRL_AP | CTRL_AP_ERASEALL, 1);
+
+    const deadline = Date.now() + 30000;
+    for (;;) {
+      const status = await this.target.readAP(CTRL_AP | CTRL_AP_ERASEALLSTATUS);
+      if (status === 0 || status === 1) break;       // READY / READYTORESET
+      if (Date.now() > deadline) throw new Error("전체 삭제가 끝나지 않는다");
+      await new Promise((r) => setTimeout(r, 100));
     }
-    await new Promise((r) => setTimeout(r, 500));
+    await this.ctrlApReset();
   }
 
   /* 알고리즘을 타깃 RAM 에 올린다 (한 번만) */
