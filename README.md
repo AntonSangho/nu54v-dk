@@ -2,6 +2,9 @@
 
 NUCODE NU54-DK (nRF54L15) 보드 브링업 펌웨어.
 
+> **브라우저에서 바로 굽기** → <https://chcbaram.github.io/nu54v-dk/>
+> 설치할 것 없이 USB 케이블만 꽂으면 된다 (Chrome / Edge). 빈 보드도 된다.
+
 ## 개발 환경
 
 | 항목 | 버전 / 내용 |
