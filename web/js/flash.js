@@ -167,11 +167,13 @@ class Flasher {
     const demcr = await this.target.readMem32(DEMCR);
     await this.target.writeMem32(DEMCR, demcr & ~VC_CORERESET);   // 벡터 캐치 해제
 
-    // 디버그를 완전히 뗀다 (C_DEBUGEN = 0).
-    // 이것을 켜 둔 채 리셋하면 펌웨어가 정상 부팅 절차를 밟지 못하고
-    // 디버그 접근(AHB-AP)이 막힌 상태가 된다 ("No cores were discovered").
-    await this.target.writeMem32(DHCSR, DBGKEY);
+    // 먼저 코어를 풀어 준다 (C_HALT = 0, C_DEBUGEN 은 그대로).
+    //
+    // halt 상태에서 C_DEBUGEN 을 0 으로 쓰면 ARM 사양상 동작이 정의되지 않는다.
+    // 코어가 그대로 굳어 펌웨어가 돌지 않는다.
+    await this.target.writeMem32(DHCSR, DBGKEY | C_DEBUGEN);
 
+    // CTRL-AP 리셋이 DHCSR 까지 기본값으로 되돌린다 (디버그 정지 해제).
     await this.ctrlApReset();
   }
 
@@ -269,6 +271,27 @@ class Flasher {
   }
 
   /*
+   * 쓴 내용을 다시 읽어 확인한다.
+   *
+   * 페이지마다 앞 16 바이트만 본다. 알고리즘이 우리가 넘긴 길이만큼 제대로 쓰는지,
+   * 주소가 맞는지 확인하는 것이 목적이다 (전체 비교는 느리다).
+   */
+  async verify(pages) {
+    for (const page of pages) {
+      const expect = new Uint32Array(page.data.buffer, page.data.byteOffset, 4);
+      const actual = await this.target.readBlock(page.address, 4);
+
+      for (let i = 0; i < 4; i++) {
+        if ((actual[i] >>> 0) !== (expect[i] >>> 0)) {
+          throw new Error(
+            `확인 실패 @${hex32(page.address + i * 4)} : ` +
+            `쓴 값 ${hex32(expect[i])}, 읽은 값 ${hex32(actual[i])}`);
+        }
+      }
+    }
+  }
+
+  /*
    * Intel HEX 한 개를 굽는다.
    * onProgress(완료바이트, 전체바이트) 로 진행률을 알린다.
    */
@@ -303,6 +326,9 @@ class Flasher {
       if (onProgress) onProgress(done, total);
     }
     await this.unInit(FLASH_OP.PROGRAM);
+
+    this.log("쓴 내용 확인");
+    await this.verify(pages);
 
     return { pages: pages.length, bytes: total };
   }
