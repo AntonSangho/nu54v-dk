@@ -19,6 +19,7 @@
 #ifdef _USE_HW_BLE
 #include "cli.h"
 #include <zephyr/settings/settings.h>
+#include <zephyr/bluetooth/hci.h>
 
 #if !defined(CONFIG_BT)
 #error "_USE_HW_BLE 를 켰으면 conf/ble.conf 를 EXTRA_CONF_FILE 에 붙여야 한다"
@@ -227,6 +228,22 @@ void cliBle(cli_args_t *args)
     ret = true;
   }
 
+  // 보드 쪽에서 연결을 끊는다 (호스트가 링크를 붙잡고 있을 때)
+  if (args->argc == 1 && args->isStr(0, "disconnect"))
+  {
+    if (p_cur_conn != NULL)
+    {
+      int err = bt_conn_disconnect(p_cur_conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+
+      cliPrintf("ble disconnect : %s (%d)\n", err == 0 ? "OK" : "Fail", err);
+    }
+    else
+    {
+      cliPrintf("연결 없음\n");
+    }
+    ret = true;
+  }
+
   if (args->argc == 2 && args->isStr(0, "name"))
   {
     cliPrintf("ble name %s : %s\n", args->getStr(1),
@@ -249,6 +266,7 @@ void cliBle(cli_args_t *args)
   {
     cliPrintf("ble info\n");
     cliPrintf("ble name str\n");
+    cliPrintf("ble disconnect\n");
 #ifdef _USE_HW_BLE_PERIPHERAL
     cliPrintf("ble adv on:off\n");
 #endif
