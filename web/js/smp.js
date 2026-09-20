@@ -21,6 +21,19 @@ const SMP_GROUP = { OS: 0, IMAGE: 1 };
 const SMP_ID_IMAGE = { STATE: 0, UPLOAD: 1 };
 const SMP_ID_OS = { RESET: 5 };
 
+/*
+ * 보드가 rc 로 거절한 것.
+ *
+ * 응답이 오지 않은 것(유실)과 반드시 구분한다. 유실은 다시 보내면 되지만
+ * rc 는 보드가 상태를 보고 내린 판단이라 같은 것을 다시 보내도 결과가 같다.
+ */
+class SmpError extends Error {
+  constructor(rc, why) {
+    super(`SMP 오류 rc=${rc}${why ? " — " + why : ""}`);
+    this.rc = rc;
+  }
+}
+
 /* 보드가 돌려주는 오류 코드 (mgmt_err_t) */
 const SMP_ERR = {
   1: "알 수 없는 오류",
@@ -218,9 +231,9 @@ class SmpClient {
         const rc = rsp.payload.rc;
         let why = SMP_ERR[rc] || "";
         // 자주 만나는 두 가지는 이유를 짚어 준다
-        if (rc === 6) why = "실행 중 이미지가 확정 전이다. 먼저 confirm 한다";
+        if (rc === 6) why = "실행 중 이미지가 확정 전이다. '현재 이미지 확정' 을 먼저 누른다";
         if (rc === 1) why = "같은 이미지이거나 처리할 수 없다";
-        reject(new Error(`SMP 오류 rc=${rc}${why ? " — " + why : ""}`));
+        reject(new SmpError(rc, why));
       } else {
         resolve(rsp.payload);
       }
@@ -275,9 +288,15 @@ class SmpClient {
     return this.request(SMP_OP.READ, SMP_GROUP.IMAGE, SMP_ID_IMAGE.STATE);
   }
 
+  /* hash 를 주면 그 이미지를, 주지 않으면 실행 중인 이미지를 가리킨다 */
   imageState(hash, confirm) {
-    return this.request(SMP_OP.WRITE, SMP_GROUP.IMAGE, SMP_ID_IMAGE.STATE,
-                        { hash, confirm });
+    const payload = hash ? { hash, confirm } : { confirm };
+    return this.request(SMP_OP.WRITE, SMP_GROUP.IMAGE, SMP_ID_IMAGE.STATE, payload);
+  }
+
+  /* 실행 중인 이미지를 확정한다 (되돌아갈 자리를 비운다) */
+  confirmActive() {
+    return this.imageState(null, true);
   }
 
   reset() {
@@ -320,6 +339,8 @@ class SmpClient {
             off === 0 ? 40000 : 3000);
           break;
         } catch (e) {
+          // 보드가 판단해서 거절한 것은 다시 보내도 같다. 바로 알린다.
+          if (e instanceof SmpError) throw e;
           if (attempt === retries) throw e;
           this.log(`조각 재전송 (${off} 바이트 지점, ${attempt + 1}/${retries}) — ${e.message}`);
           this.pending = null;                 // 늦게 온 응답은 버린다

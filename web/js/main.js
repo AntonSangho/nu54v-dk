@@ -334,6 +334,7 @@ function setBleConnected(on) {
   $("ble-connect").disabled = on;
   $("ble-disconnect").disabled = !on;
   $("ble-upload").disabled = !on || $("binfile").files.length === 0;
+  $("ble-confirm").disabled = !on;
 }
 
 async function showBleState() {
@@ -439,6 +440,24 @@ $("ble-connect").addEventListener("click", bleConnect);
 $("ble-disconnect").addEventListener("click", bleDisconnect);
 $("binfile").addEventListener("change", () => setBleConnected(bleTransport !== null));
 $("ble-upload").addEventListener("click", bleUpload);
+$("ble-confirm").addEventListener("click", () => confirmActive(bleClient, showBleState, "BLE"));
+
+
+/*
+ * 실행 중인 이미지를 확정한다.
+ *
+ * MCUboot 는 확정 전인 이미지가 돌고 있으면 slot1 을 되돌아갈 자리로 잡아 두고
+ * 새 업로드를 거절한다 (rc=6). 지금 도는 펌웨어가 멀쩡하다는 판단이 섰을 때 누른다.
+ */
+async function confirmActive(client, showState, name) {
+  try {
+    await client.confirmActive();
+    log(`${name} : 실행 중 이미지를 확정했다`, "ok");
+  } catch (e) {
+    log(`${name} : 확정 실패 — ${e.message || e}`, "err");
+  }
+  await showState();
+}
 
 
 //-- 시리얼 (SMP) 업데이트
@@ -452,6 +471,7 @@ function setSerConnected(on) {
   $("ser-connect").disabled = on;
   $("ser-disconnect").disabled = !on;
   $("ser-upload").disabled = !on || $("serbinfile").files.length === 0;
+  $("ser-confirm").disabled = !on;
 }
 
 async function showSerState() {
@@ -560,3 +580,4 @@ $("ser-connect").addEventListener("click", serConnect);
 $("ser-disconnect").addEventListener("click", serDisconnect);
 $("serbinfile").addEventListener("change", () => setSerConnected(serTransport !== null));
 $("ser-upload").addEventListener("click", serUpload);
+$("ser-confirm").addEventListener("click", () => confirmActive(serClient, showSerState, "시리얼"));
