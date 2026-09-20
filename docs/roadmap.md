@@ -39,8 +39,8 @@
 | 15 | `rtc` | 날짜·시계 (기준 epoch + GRTC, 보존 RAM), 시간대(nvs), log 타임스탬프, `rtc` CLI | GRTC, 보존 RAM 4 KB | rtc (NU87 API) | 틱 없음, System OFF 에서도 시각 유지 | ✅ |
 | 16 | `ble_nus` | BLE 스택/역할/서비스 3층, NUS 를 uart 가상 채널로 → cli 가 BLE 에서 동작 | RADIO | uart(`uartSetDriver`), cli_mgr (NU87) | 수신 콜백 → 알림, 광고/연결 간격은 17 | ✅ |
 | 17 | `ble_power` | BLE 저전력 튜닝: 광고 주기, 연결 파라미터, 슬레이브 레이턴시 | RADIO | | 광고/연결 상태별 평균 전류 표 | |
-| 18 | `dfu` | MCUboot(swap using move) + SMP 로 펌웨어 업데이트 (BLE + 시리얼 VCOM0). 서명 키는 저장소에 포함. `dfu info/test/confirm/revert` CLI | slot0/slot1 파티션 | nrf/samples/dfu/smp_svr, nrf54l15-bd `nrf54l-fw-fota` | 부트로더 크기와 부팅 시간 | 진행 중 |
-| 19 | `web_dfu` | 저장소 GitHub Pages 에서 **Web Bluetooth / Web Serial** 로 업데이트하는 페이지. 참고: boogie/mcumgr-web (BLE 쪽 구현 있음), 시리얼은 직접 (§7) | | | 업로드 중 연결 간격만 당기고 복귀 | |
+| 18 | `dfu` | MCUboot(swap using move) + SMP 로 펌웨어 업데이트. **시리얼 SMP 는 cli 포트(VCOM1) 위에 얹는다** (VCOM0 는 프로브 결함으로 못 쓴다). 서명 키는 저장소에 포함. `dfu info/test/confirm/revert/serial` CLI, `fw dfu` + VS Code 태스크 | slot0/slot1 파티션 | nrf/samples/dfu/smp_svr, nrf54l15-bd `nrf54l-fw-fota` | MCUboot 56 KB, 부팅 시간 미측정 | ✅ |
+| 19 | `web_dfu` | 저장소 GitHub Pages 에서 **WebUSB(SWD) / Web Bluetooth / Web Serial** 로 업데이트하는 페이지. WebUSB 는 빈 보드에 MCUboot+앱 전체 설치도 된다 (§8) | | dapjs, boogie/mcumgr-web | 업로드 중 연결 간격만 당기고 복귀 | |
 | 20 | `app` | 위 모듈을 합친 기본 펌웨어 (cli + ble_nus + 센서 + 전원 관리) | 전체 | ap/system | 동작 모드별 전류 | |
 | 21 | `epaper` | **WeAct 4.2" e-paper (SSD1683, 400×300)** (마지막 단계, app 에 화면 추가) : SPI, 화면 버퍼, 글자/도형, 전체/부분 갱신 | SPI00 + GPIO (P2 헤더, §3) | spi, lcd (+ lcd/ssd1306 구조) | 갱신 후 deep sleep, 부분 갱신, 필요 시 VCC 차단 | |
 

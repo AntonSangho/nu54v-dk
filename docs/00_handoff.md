@@ -46,6 +46,8 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-20 | `projects/dfu` **완료** : MCUboot(0x0, 56 KB) + 앱 slot0(0x10000), ED25519 서명(키 저장소 포함). SMP 를 BLE 와 **cli 포트(VCOM1)** 양쪽에. 시리얼 SMP 는 Zephyr 의 UART 전송 대신 우리 uart 모듈 위에 직접 얹었다 (cli 는 필터 훅만 제공 — dfu 를 모른다). `dfu` CLI, `fw dfu` + VS Code 태스크. BLE 249 KB/15.8초, 시리얼 249 KB/44초 왕복 확인 |
+| 2026-09-20 | **내장 프로브(DAPLink) 결함**: VCOM0 를 쓰면 같은 프로브의 SWD 가 죽는다. 원인 분리 후 제조사 보고서 작성 ([reports/2026-09-20_daplink_vcom0_swd.md](reports/2026-09-20_daplink_vcom0_swd.md)). 그래서 시리얼 SMP 를 VCOM1 로 옮겼다 |
 | 2026-09-20 | `projects/ble_nus` : BLE 스택/역할/서비스 3층 구조, NUS 를 uart 가상 채널로 붙여 cli 가 BLE 에서 동작. 호스트(bleak)로 스캔·연결·명령 확인. baram-term 은 BLE 미지원 → socket 다리 필요 (사용자 결정) |
 | 2026-09-20 | `projects/rtc` : 기준 epoch + GRTC 카운터, 보존 RAM 4 KB(보드 DTS), 시간대 nvs 저장, 로그 타임스탬프. System OFF 는 카운터 유지, 소프트 리셋은 0 부터 (데이터시트와 다름 — 15_rtc §3) |
 | 2026-09-20 | `projects/nvs` : Zephyr Settings + ZMS(RRAM 용) 로 이름 기반 저장, 리셋 후 유지 확인. 참조에 qmk-zephyr 추가 |
