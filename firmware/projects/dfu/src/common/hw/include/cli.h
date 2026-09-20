@@ -41,8 +41,7 @@ typedef struct
 /* 수신 바이트를 cli 보다 먼저 보는 필터.
  *
  * true 를 돌려주면 그 바이트는 cli 가 처리하지 않는다.
- * 시리얼 DFU(SMP)처럼 같은 포트를 나눠 쓰는 기능이 자기를 등록한다 (uartSetDriver 와 같은 방식).
- * cli 는 등록한 쪽이 무엇인지 알지 못한다.
+ * 같은 포트를 나눠 쓰는 쪽이 자기를 등록한다 (uartSetDriver 와 같은 방식).
  */
 typedef bool (*cli_rx_filter_t)(uint8_t ch, uint8_t rx_data);
 

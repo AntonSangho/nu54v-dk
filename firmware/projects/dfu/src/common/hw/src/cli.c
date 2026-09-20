@@ -238,7 +238,7 @@ bool cliMain(void)
   {
     uint8_t rx_data = uartRead(cli_node.ch);
 
-    // 등록된 필터가 먼저 본다 (시리얼 DFU 등). 가져갔으면 cli 는 건너뛴다.
+    // 등록된 필터가 먼저 본다. 가져갔으면 cli 는 건너뛴다.
     if (rx_filter != NULL && rx_filter(cli_node.ch, rx_data) == true)
     {
       return true;

@@ -305,7 +305,7 @@ uart(VCOM1) → cliMain() → dfuSerialRxByte()
   (`uartSetDriver()` 와 같은 방식).
 
   ```c
-  // cli.h — 필터 자리만 있다
+  // cli.h — 필터 자리만 있다. 주석에도 dfu 는 나오지 않는다
   typedef bool (*cli_rx_filter_t)(uint8_t ch, uint8_t rx_data);
   bool cliSetRxFilter(cli_rx_filter_t filter);
 
