@@ -67,9 +67,11 @@ static bool     is_frame  = false;    // 프레임을 받는 중
 static bool     is_enable = true;
 static uint8_t  tx_ch     = HW_UART_CH_CLI;
 
-static uint32_t rx_pkt_cnt = 0;
-static uint32_t tx_pkt_cnt = 0;
-static uint32_t err_cnt    = 0;
+static uint32_t rx_pkt_cnt  = 0;
+static uint32_t tx_pkt_cnt  = 0;
+static uint32_t err_cnt     = 0;
+static uint32_t frag_cnt    = 0;   // 받은 줄 수
+static uint32_t frag_drop   = 0;   // 줄은 다 받았는데 패킷이 안 된 횟수
 
 
 
@@ -113,6 +115,12 @@ void dfuSerialGetCnt(uint32_t *p_rx, uint32_t *p_tx, uint32_t *p_err)
   if (p_err != NULL) *p_err = err_cnt;
 }
 
+void dfuSerialGetFragCnt(uint32_t *p_frag, uint32_t *p_drop)
+{
+  if (p_frag != NULL) *p_frag = frag_cnt;
+  if (p_drop != NULL) *p_drop = frag_drop;
+}
+
 /*
  * cli 가 읽은 바이트를 먼저 보여 준다. SMP 프레임이면 true 를 돌려 cli 가 무시하게 한다.
  *
@@ -131,13 +139,24 @@ bool dfuSerialRxByte(uint8_t ch, uint8_t rx_data)
     return false;
   }
 
-  // 프레임을 받는 중이면 들어와 있는 것을 여기서 다 비운다.
+  // 들어와 있는 것을 여기서 다 비운다.
   // cliMain() 은 한 번에 한 바이트만 처리하므로, 그대로 두면 115200 bps 연속 수신을
   // 따라가지 못해 RX 큐가 넘친다 (업로드가 중간에 멈춘다).
+  //
+  // is_frame 은 줄 끝(\n)마다 false 가 된다. 그것만 보면 한 패킷이 여러 줄일 때
+  // 줄 경계마다 한 바이트씩 처리하는 길로 되돌아간다. rx_ctxt.nb 가 있으면
+  // 아직 패킷을 모으는 중이라는 뜻이므로 그 동안에도 계속 비운다.
   // 큐가 비면 바로 돌아오므로 cliMain() 이 기다리지 않는다는 성질은 그대로다.
-  while (is_frame == true && uartAvailable(ch) > 0)
+  while (uartAvailable(ch) > 0 &&
+         (is_frame == true || mark_1 != 0 || rx_ctxt.nb != NULL))
   {
-    dfuSerialFeed(uartRead(ch));
+    if (dfuSerialFeed(uartRead(ch)) != true)
+    {
+      // 패킷을 모으는 중에 프레임이 아닌 바이트가 섞였다. 큐에서 이미 꺼냈으므로
+      // cli 로 돌려줄 수 없다. 모으던 것을 버리고 cli 에게 넘긴다.
+      err_cnt++;
+      break;
+    }
   }
 
   return true;
@@ -153,11 +172,19 @@ bool dfuSerialFeed(uint8_t rx_data)
     {
       struct net_buf *p_nb;
 
+      frag_cnt++;
       p_nb = mcumgr_serial_process_frag(&rx_ctxt, frag_buf, frag_len);
       if (p_nb != NULL)
       {
         rx_pkt_cnt++;
         smp_rx_req(&transport, p_nb);
+      }
+      else if (rx_ctxt.nb == NULL)
+      {
+        // 아직 모으는 중이면 NULL 이 정상이다. 모으는 것도 없는데 NULL 이면
+        // 버린 것이다 (버퍼 할당 실패 / base64 / 길이 / CRC — 전부 조용히 NULL).
+        // 이 경우 호스트는 응답을 못 받고 타임아웃을 본다.
+        frag_drop++;
       }
       frag_len = 0;
       is_frame = false;

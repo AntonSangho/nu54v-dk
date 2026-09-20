@@ -159,10 +159,15 @@ void cliDfu(cli_args_t *args)
 #ifdef _USE_HW_DFU_SERIAL
     {
       uint32_t rx_cnt, tx_cnt, err_cnt;
+      uint32_t frag_cnt, drop_cnt;
 
       dfuSerialGetCnt(&rx_cnt, &tx_cnt, &err_cnt);
+      dfuSerialGetFragCnt(&frag_cnt, &drop_cnt);
       cliPrintf("serial.state  : %s\n", dfuSerialIsEnable() ? "on" : "off");
       cliPrintf("serial.pkt    : rx %d, tx %d, err %d\n", rx_cnt, tx_cnt, err_cnt);
+      // frag 은 받은 줄 수, drop 은 줄은 다 받았는데 패킷이 안 된 횟수다.
+      // drop 이 오르면 그만큼 호스트가 응답 없이 타임아웃을 봤다는 뜻이다.
+      cliPrintf("serial.frag   : %d, drop %d\n", frag_cnt, drop_cnt);
     }
 #endif
     ret = true;

@@ -39,6 +39,7 @@ bool dfuSerialRxByte(uint8_t ch, uint8_t rx_data);   // cli 가 읽은 바이트
 void dfuSerialEnable(bool enable);
 bool dfuSerialIsEnable(void);
 void dfuSerialGetCnt(uint32_t *p_rx, uint32_t *p_tx, uint32_t *p_err);
+void dfuSerialGetFragCnt(uint32_t *p_frag, uint32_t *p_drop);
 #endif
 
 

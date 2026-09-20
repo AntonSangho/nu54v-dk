@@ -47,6 +47,11 @@ typedef struct
   struct k_sem   rx_off_sem;
   struct k_sem   tx_sem;
   struct k_mutex tx_mutex;
+
+  // 조용히 잃는 자리를 드러내기 위한 계수기 (SMP 업로드에서 한 번씩 응답이 빈다)
+  uint32_t       rx_drop_cnt;     // 수신 큐가 꽉 차 버린 바이트
+  uint32_t       rx_stop_cnt;     // UARTE 가 수신을 멈췄다 (오버런·프레이밍)
+  uint32_t       rx_stop_reason;  // 마지막 멈춤 이유
 } uart_hw_t;
 
 typedef struct
@@ -400,13 +405,26 @@ void uartEventCallback(const struct device *dev, struct uart_event *evt, void *u
       break;
 
     case UART_RX_RDY:
-      qbufferWrite(&p_hw->rx_q, &evt->data.rx.buf[evt->data.rx.offset], evt->data.rx.len);
+      // 큐가 꽉 차면 qbufferWrite() 는 false 를 돌려주고 그 바이트는 사라진다.
+      // 그대로 두면 SMP 프레임 한 줄이 깨져 응답이 통째로 없어진다 (원인이 안 보인다).
+      if (qbufferWrite(&p_hw->rx_q, &evt->data.rx.buf[evt->data.rx.offset],
+                       evt->data.rx.len) != true)
+      {
+        p_hw->rx_drop_cnt += evt->data.rx.len;
+      }
       uartRxNotify(p_hw->ch);
       break;
 
     case UART_RX_BUF_REQUEST:
       p_hw->rx_dma_index ^= 1;
       uart_rx_buf_rsp(dev, p_hw->rx_dma_buf[p_hw->rx_dma_index], UART_RX_DMA_LEN);
+      break;
+
+    case UART_RX_STOPPED:
+      // 오버런·프레이밍·패리티 오류. 여기까지 오면 이미 데이터를 잃었다.
+      // 곧 UART_RX_DISABLED 가 따라오고 아래에서 수신을 다시 켠다.
+      p_hw->rx_stop_cnt++;
+      p_hw->rx_stop_reason = evt->data.rx_stop.reason;
       break;
 
     case UART_RX_DISABLED:
@@ -448,6 +466,10 @@ void cliUart(cli_args_t *args)
       if (uart_tbl[i].p_hw != NULL)
       {
         cliPrintf(", rx queue %d/%d", (int)qbufferAvailable(&uart_tbl[i].p_hw->rx_q), UART_RX_BUF_LEN);
+        cliPrintf("\n             rx drop %d, rx stop %d (reason 0x%X)",
+                  (int)uart_tbl[i].p_hw->rx_drop_cnt,
+                  (int)uart_tbl[i].p_hw->rx_stop_cnt,
+                  (unsigned)uart_tbl[i].p_hw->rx_stop_reason);
       }
       cliPrintf("\n");
     }
