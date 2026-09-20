@@ -19,6 +19,9 @@
 const SERIAL_MARK_PKT = [0x06, 0x09];
 const SERIAL_MARK_FRAG = [0x04, 0x14];
 
+const PKT_MARK_STR = String.fromCharCode(...SERIAL_MARK_PKT);
+const FRAG_MARK_STR = String.fromCharCode(...SERIAL_MARK_FRAG);
+
 // 한 줄에 담는 base64 길이. 보드의 수신 버퍼(DFU_SERIAL_FRAG_MAX)보다 작아야 한다.
 const SERIAL_LINE_MAX = 120;
 
@@ -82,6 +85,7 @@ class SerialSmpTransport {
       orphanFrag: 0,     // 시작을 못 본 채 온 이어짐 → 앞줄을 잃었다는 증거
       badB64: 0,         // base64 해독 실패
       crcErr: 0,         // CRC 불일치
+      markInline: 0,     // 표식 앞에 cli 출력이 붙어 온 줄
       packets: 0,        // 온전히 모은 패킷
     };
   }
@@ -161,24 +165,46 @@ class SerialSmpTransport {
   }
 
   handleLine(line) {
-    const c0 = line.charCodeAt(0);
-    const c1 = line.charCodeAt(1);
+    // 표식이 줄 첫머리에 있다고 가정하면 안 된다.
+    //
+    // cli 는 프롬프트("cli# ")를 줄바꿈 없이 찍는다. 그 뒤에 SMP 응답이 이어지면
+    // 한 줄 안에 "cli# " + 0x06 0x09 + base64 가 같이 온다. 첫 두 글자만 보면
+    // 그 프레임을 통째로 버리게 되고, 뒤따르는 이어짐 줄이 전부 고아가 된다
+    // (부팅 직후 첫 명령이 "응답이 오지 않는다" 로 끝나던 이유).
+    //
+    // base64 도 cli 출력도 모두 출력 가능한 글자라, 0x06 0x09 / 0x04 0x14 가
+    // 중간에 나오면 그것은 틀림없이 표식이다.
+    const iPkt = line.indexOf(PKT_MARK_STR);
+    const iFrag = line.indexOf(FRAG_MARK_STR);
 
-    if (c0 === SERIAL_MARK_PKT[0] && c1 === SERIAL_MARK_PKT[1]) {
+    let at = -1;
+    let isPkt = false;
+    if (iPkt >= 0 && (iFrag < 0 || iPkt < iFrag)) { at = iPkt; isPkt = true; }
+    else if (iFrag >= 0) { at = iFrag; }
+
+    if (at < 0) {
+      // cli 출력이다. 듣는 쪽이 있으면 넘긴다 (보드 상태를 물어볼 때 쓴다).
+      if (this.onText) this.onText(line);
+      return;
+    }
+    if (at > 0) {
+      this.cnt.markInline++;                  // 앞에 cli 출력이 붙어 있었다
+      if (this.onText) this.onText(line.slice(0, at));
+    }
+
+    const rest = line.slice(at + 2);
+
+    if (isPkt) {
       this.cnt.markPkt++;
-      this.b64 = line.slice(2);               // 새 패킷의 시작
+      this.b64 = rest;                        // 새 패킷의 시작
       this.bodyLen = -1;
-    } else if (c0 === SERIAL_MARK_FRAG[0] && c1 === SERIAL_MARK_FRAG[1]) {
+    } else {
       this.cnt.markFrag++;
       if (this.b64 === "") {                  // 시작을 못 본 이어짐은 버린다
         this.cnt.orphanFrag++;
         return;
       }
-      this.b64 += line.slice(2);
-    } else {
-      // cli 출력이다. 듣는 쪽이 있으면 넘긴다 (보드 상태를 물어볼 때 쓴다).
-      if (this.onText) this.onText(line);
-      return;
+      this.b64 += rest;
     }
 
     // 4 글자 = 3 바이트. 지금까지 온 만큼만 디코딩해 길이를 본다.
