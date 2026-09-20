@@ -24,15 +24,29 @@ function log(msg, cls) {
   el.scrollTop = el.scrollHeight;
 }
 
-/* 진행 바. pct 가 null 이면 감춘다. */
+/*
+ * 진행 바. pct 가 null 이면 감춘다.
+ *
+ * 조각마다 부르면 1200 번이 넘는다. 그때마다 DOM 을 건드리면 레이아웃이 걸려
+ * 시리얼 읽기가 밀리고 응답을 놓친다. 그래서 100 ms 에 한 번만 실제로 그린다.
+ */
+const progressLast = {};
+
 function setProgress(id, pct, text) {
   const bar = $(`${id}-bar`);
   const label = $(id);
+
   if (pct === null) {
     bar.classList.remove("on");
     label.textContent = "";
+    progressLast[id] = 0;
     return;
   }
+
+  const now = performance.now();
+  if (pct < 100 && now - (progressLast[id] || 0) < 100) return;
+  progressLast[id] = now;
+
   bar.classList.add("on");
   bar.firstElementChild.style.width = `${pct}%`;
   label.textContent = text || "";
