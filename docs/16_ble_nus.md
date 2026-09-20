@@ -112,16 +112,101 @@ cli# ble disconnect   ← 보드 쪽에서 끊기 (1초 뒤 광고 재시작)
 남이 쓰고 있을 수 있으므로 `ble disconnect` 는 함부로 쓰지 않는다.
 자동 시험에서 BLE 를 잠시 비워야 하면 baram-term 쪽에서 `baram-ctl release` → 끝나고 `resume` 을 쓴다.
 
-## 5. 저전력
+## 5. 송신 구조 — MTU 를 채워서 보낸다
+
+`cliPrintf()` 는 한 줄씩 부른다. 그것을 그대로 `bt_nus_send()` 로 내보내면 20 바이트짜리 notify 가
+줄 수만큼 나가고, 호스트 스택의 송신 버퍼(`BT_BUF_ACL_TX_COUNT`, 기본 3)가 금방 말라
+`-ENOMEM` 으로 **출력이 조용히 잘린다**. 그래서 `ble_nus.c` 가 중간에 모은다.
+
+```
+cliPrintf("...") ─┐
+logPrintf("...") ─┼→ uartWrite(HW_UART_CH_BLE) → bleNusDrvWrite()
+                  │       │
+                  │       ├─ tx_buf 에 복사 (tx_mutex)
+                  │       ├─ MTU(244) 가 차면 → bt_nus_send() 로 바로 한 방
+                  │       └─ 남은 조각 → 2 ms 뒤 tx_flush_work 가 내보낸다
+                  │
+호스트 ← notify ←─┘
+```
+
+| 항목 | 값 | 이유 |
+|---|---|---|
+| `BLE_NUS_TX_BUF_LEN` | 512 | MTU(244)보다 크게. 한 번에 MTU 까지만 보낸다 |
+| `BLE_NUS_TX_FLUSH_MS` | 2 | 마지막 조각이 나가기까지의 추가 지연 |
+| `BLE_NUS_TX_RETRY_MS` | 2 | `-ENOMEM` 이면 폴링이 아니라 `k_msleep` 으로 기다렸다 재시도 |
+| `BLE_NUS_TX_TIMEOUT_MS` | 500 | 이 시간이 지나면 포기하고 버린다 (`ble info` 의 `drop`) |
+
+- 버퍼가 없을 때 **버리지 않고 기다린다**. 예전 코드는 `break` 해서 뒷부분을 잃었다.
+- 송신은 스레드에서만 한다 (`k_is_in_isr()` 이면 반환 0). ISR 로그는 원래대로 콘솔로 나간다.
+- 연결/해제 때 `tx_len = 0` 으로 비우고 워크를 취소한다.
+- `ble info` 가 `mtu / rx / tx bytes / pkt / drop` 을 찍는다. `drop` 이 0 이 아니면 위 값을 의심한다.
+  (`ble_svc_t.info` 콜백 — 서비스가 자기 상태를 찍는 자리. `ble.c` 는 서비스 내용을 모른다)
+
+### 지연 — 짧은 데이터는 거의 전부 "연결 간격"
+
+보드가 응답을 만드는 시간은 µs 단위다. 실제 지연은 다음 연결 이벤트를 기다리는 시간이다.
+
+```
+호스트 write ──(다음 앵커까지 0~interval)──→ 보드 처리(µs) ──(2 ms flush)──→ 다음 앵커 ──→ notify
+```
+
+실측 (macOS 12, 엔터 한 번 → 프롬프트 한 줄 왕복, 25 회):
+
+| 연결 간격 | min | median | max |
+|---|---|---|---|
+| 22.5 ms (협상 기본) | 19.3 ms | 28.5 ms | 40.2 ms |
+| 11.25 ms | 21.7 ms | 34.9 ms | 46.1 ms |
+| 7.5 ms (`ble fast on`) | 14.8 ms | 20.6 ms | 23.6 ms |
+
+즉 **짧은 데이터의 왕복은 대략 `2 ms + (1~2) × 연결 간격`** 이다. 간격은 호스트가 정한다
+(macOS 는 연결할 때마다 11.25 / 22.5 ms 등으로 다르게 준다).
+
+## 6. 고속으로 쓰고 싶을 때
+
+링크의 이론 한계는 2M PHY + MTU 247 + DLE 251 + 7.5 ms 에서 대략 700 kbps ~ 1 Mbps 다.
+CLI 텍스트 정도면 기본값으로 충분하고, 아래는 필요할 때만 켠다. **전류를 더 쓴다.**
+
+**런타임 — `ble fast on` / `ble fast off`** (`bleSetFastMode()`)
+
+- 연결 간격을 7.5 ms 로 당기고 2M PHY 를 요청한다. `off` 면 15~30 ms 로 되돌린다.
+- 요청일 뿐이라 상대가 거부할 수 있다. `ble info` 로 실제 협상값을 본다.
+
+**빌드 옵션 — `conf/ble_throughput.conf` 를 `EXTRA_CONF_FILE` 에 추가**
+
+| Kconfig | 기본 | 조각의 값 | 뜻 |
+|---|---|---|---|
+| `BT_BUF_ACL_TX_COUNT` | 3 | 10 | 호스트 송신 버퍼 (하나당 RAM 약 260 B). `ble.conf` 에서 이미 6 |
+| `BT_CTLR_SDC_TX_PACKET_COUNT` | 3 | 8 | 링크 레이어 송신 버퍼 |
+| `BT_CTLR_SDC_RX_PACKET_COUNT` | 2 | 4 | 링크 레이어 수신 버퍼 |
+| `BT_CTLR_SDC_MAX_CONN_EVENT_LEN_DEFAULT` | 7500 us | 15000 | 한 이벤트에 쓸 수 있는 시간 = 이벤트당 패킷 수 |
+
+이미 `conf/ble.conf` 에 들어 있는 것 (기본으로 켜 둔다)
+
+- `BT_L2CAP_TX_MTU=247`, `BT_BUF_ACL_TX/RX_SIZE=251`, `BT_CTLR_DATA_LENGTH_MAX=251` — MTU 247 + DLE
+- `BT_BUF_ACL_TX_COUNT=6`
+- `BT_USER_PHY_UPDATE=y`, `BT_USER_DATA_LEN_UPDATE=y` — `ble info` 에 PHY / 데이터 길이 표시
+
+> **PHY 주의**: `BT_USER_PHY_UPDATE=y` 를 켜면 `BT_AUTO_PHY_UPDATE` 가 꺼진다. 그래서 연결 콜백에서
+> `bt_conn_le_phy_update(BT_CONN_LE_PHY_PARAM_2M)` 을 직접 요청한다. 이 맥(macOS 12)은 요청이
+> 에러 없이(0) 나가도 **1M 을 유지**했다. PHY 는 상대가 정한다.
+
+그 밖에
+
+- 호스트→보드는 **write without response** 를 쓴다 (응답을 기다리면 이벤트마다 1 패킷으로 떨어진다).
+- 큰 파일을 옮길 일이 생기면 GATT notify 대신 **L2CAP CoC** 가 더 빠르다 (`bt_l2cap_chan_send`).
+- 슬레이브 레이턴시는 처리량과 반대다. 대기 상태 전력은 17 ble_power 에서 같이 다룬다.
+
+## 7. 저전력
 
 | 항목 | 내용 |
 |---|---|
 | 광고 | 연결 전에는 계속 광고한다 (100~150 ms). 빠른 광고 → 느린 광고 → 정지는 17 ble_power |
 | 연결 | 지금은 항상 빠른 간격. 대기 중 간격 늘리기 + 슬레이브 레이턴시도 17 에서 |
 | 수신 | notify 콜백에서 qbuffer 에 넣고 `uartRxNotify()` 로 깨운다 (폴링 없음) |
-| 크기 | BLE 를 켜면 FLASH +130 KB, RAM +25 KB (226 KB / 50 KB) |
+| 송신 | MTU 만큼 모아 보내 패킷 수를 줄인다 (전파 시간 ↓). 버퍼가 없으면 폴링 대신 `k_msleep` |
+| 크기 | BLE 를 켜면 FLASH +130 KB, RAM +25 KB (228 KB / 52 KB) |
 
-## 6. 검증 결과 (2026-09-20, NCS v3.4.1, macOS)
+## 8. 검증 결과 (2026-09-20, NCS v3.4.1, macOS)
 
 - [x] 빌드: FLASH 226 KB / RAM 50 KB
 - [x] `ble info` : 광고 동작, 서비스 목록에 `nus`
@@ -130,5 +215,9 @@ cli# ble disconnect   ← 보드 쪽에서 끊기 (1초 뒤 광고 재시작)
 - [x] BLE 로 `ble info` / `rtc info` / `adc info` / `log info` / `nvs set` 실행
 - [x] 연결 → 해제 → **재광고** → 재연결 (2회 반복)
 - [x] 채널 전환 : BLE ↔ 시리얼, 로그도 따라감
+- [x] `info` 명령 (펌웨어 버전 확인 — baram-term 자동 시험용)
+- [x] 송신 MTU 모으기 : `log list` 1164 바이트가 **5 패킷**(평균 233 B/pkt), `drop 0`
+- [x] 왕복 지연 실측 : 위 표 (7.5 ms 간격에서 median 20.6 ms)
+- [x] `ble fast on` → `ble info` 에서 `interval: 7.50 ms` 확인
 - [ ] baram-term 의 `ble://` 지원으로 연동 확인 (baram-term 쪽 작업 중)
 - [ ] 소비전류 (17 ble_power)

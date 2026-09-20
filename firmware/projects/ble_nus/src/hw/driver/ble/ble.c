@@ -139,6 +139,28 @@ bool bleSetDeviceName(const char *p_name)
   return bt_set_name(device_name) == 0;
 }
 
+// 고속 모드 : 인터벌을 최소(7.5 ms)로 당겨 처리량과 응답을 올린다. 그만큼 전류를 더 쓴다.
+// 끄면 저전력 쪽 값(15~30 ms)으로 되돌린다. 상대가 거부할 수 있다 (요청일 뿐이다).
+// 버퍼 쪽 한계는 conf/ble_throughput.conf 로 같이 올린다.
+//
+bool bleSetFastMode(bool enable)
+{
+  if (p_cur_conn == NULL) return false;
+
+#if defined(CONFIG_BT_USER_PHY_UPDATE)
+  {
+    int err = bt_conn_le_phy_update(p_cur_conn, BT_CONN_LE_PHY_PARAM_2M);
+
+    if (err != 0) logPrintf("[E_] ble phy 2M %d\n", err);
+  }
+#endif
+
+  // 단위 1.25 ms : 6 = 7.5 ms, 12~24 = 15~30 ms. 타임아웃 4 초.
+  return bt_conn_le_param_update(p_cur_conn,
+                                 enable ? BT_LE_CONN_PARAM(6, 6, 0, 400)
+                                        : BT_LE_CONN_PARAM(12, 24, 0, 400)) == 0;
+}
+
 // 연결/해제는 등록된 모든 서비스에 알린다.
 //
 void bleConnected(struct bt_conn *p_conn, uint8_t err)
@@ -154,6 +176,16 @@ void bleConnected(struct bt_conn *p_conn, uint8_t err)
   }
 
   p_cur_conn = bt_conn_ref(p_conn);
+
+#if defined(CONFIG_BT_USER_PHY_UPDATE)
+  // 2M PHY 를 요청한다. 같은 데이터를 절반 시간에 보내므로 처리량이 오르고 송신 시간이 줄어 전력에도 좋다.
+  // 상대가 거부하면 1M 그대로 쓴다 (실패해도 문제 없음).
+  {
+    int phy_err = bt_conn_le_phy_update(p_conn, BT_CONN_LE_PHY_PARAM_2M);
+
+    if (phy_err != 0) logPrintf("[E_] ble phy 2M %d\n", phy_err);
+  }
+#endif
 
 #ifdef _USE_HW_BLE_PERIPHERAL
   bleAdvSetStopped();     // 연결되면 스택이 광고를 멈춘다
@@ -217,6 +249,26 @@ void cliBle(cli_args_t *args)
     cliPrintf("init      : %s\n", is_init ? "True" : "False");
     cliPrintf("name      : %s\n", bleGetDeviceName());
     cliPrintf("connected : %s\n", bleIsConnected() ? "True" : "False");
+    if (p_cur_conn != NULL)
+    {
+      struct bt_conn_info conn_info;
+
+      if (bt_conn_get_info(p_cur_conn, &conn_info) == 0 && conn_info.type == BT_CONN_TYPE_LE)
+      {
+        // 인터벌 단위 1.25 ms, 타임아웃 단위 10 ms. 짧은 데이터의 지연은 대부분 이 인터벌이다.
+        cliPrintf("  interval: %d.%02d ms\n",
+                  (conn_info.le.interval * 125) / 100, (conn_info.le.interval * 125) % 100);
+        cliPrintf("  latency : %d\n", conn_info.le.latency);
+        cliPrintf("  timeout : %d ms\n", conn_info.le.timeout * 10);
+#if defined(CONFIG_BT_USER_PHY_UPDATE)
+        cliPrintf("  phy     : tx %d, rx %d\n", conn_info.le.phy->tx_phy, conn_info.le.phy->rx_phy);
+#endif
+#if defined(CONFIG_BT_USER_DATA_LEN_UPDATE)
+        cliPrintf("  data len: tx %d, rx %d\n",
+                  conn_info.le.data_len->tx_max_len, conn_info.le.data_len->rx_max_len);
+#endif
+      }
+    }
 #ifdef _USE_HW_BLE_PERIPHERAL
     cliPrintf("adv       : %s\n", bleAdvIsRunning() ? "running" : "stopped");
 #endif
@@ -224,6 +276,10 @@ void cliBle(cli_args_t *args)
     for (int i = 0; i < svc_count; i++)
     {
       cliPrintf("  %s\n", p_svc[i].name);
+      if (p_svc[i].info != NULL)
+      {
+        p_svc[i].info();
+      }
     }
     ret = true;
   }
@@ -241,6 +297,15 @@ void cliBle(cli_args_t *args)
     {
       cliPrintf("연결 없음\n");
     }
+    ret = true;
+  }
+
+  if (args->argc == 2 && args->isStr(0, "fast"))
+  {
+    bool enable = args->isStr(1, "on");
+
+    cliPrintf("ble fast %s : %s\n", enable ? "on" : "off",
+              bleSetFastMode(enable) ? "요청함" : "Fail");
     ret = true;
   }
 
@@ -267,6 +332,7 @@ void cliBle(cli_args_t *args)
     cliPrintf("ble info\n");
     cliPrintf("ble name str\n");
     cliPrintf("ble disconnect\n");
+    cliPrintf("ble fast on:off\n");
 #ifdef _USE_HW_BLE_PERIPHERAL
     cliPrintf("ble adv on:off\n");
 #endif

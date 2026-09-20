@@ -28,6 +28,7 @@ typedef struct
   bool (*init)(void);
   void (*connected)(struct bt_conn *p_conn);
   void (*disconnected)(struct bt_conn *p_conn);
+  void (*info)(void);                 // ble info 에서 서비스가 자기 상태를 찍는다 (없어도 된다)
 } ble_svc_t;
 
 #define BLE_SVC_DEF(x_name) static __attribute__((section(".ble_svc"))) volatile ble_svc_t ble_svc_##x_name =
@@ -37,6 +38,8 @@ bool bleInit(void);
 bool bleIsInit(void);
 bool bleIsConnected(void);
 struct bt_conn *bleGetConn(void);
+
+bool bleSetFastMode(bool enable);   // 2M PHY + 짧은 인터벌 요청 (전류 ↑)
 
 const char *bleGetDeviceName(void);
 bool        bleSetDeviceName(const char *p_name);
