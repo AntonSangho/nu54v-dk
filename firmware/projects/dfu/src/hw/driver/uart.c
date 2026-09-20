@@ -67,7 +67,8 @@ typedef struct
   struct k_sem   rx_sem;          // 수신 알림 (하드웨어 콜백 / 드라이버의 uartRxNotify)
 } uart_tbl_t;
 
-/* 수신 알림을 한 곳에서 더 받고 싶은 쪽이 거는 훅 (ISR 문맥에서 불린다).
+/* 수신 알림을 한 곳에서 더 받고 싶은 쪽이 거는 훅.
+ * ISR 또는 드라이버 스레드 문맥에서 불린다 (가상 채널은 자기 스레드에서 알린다).
  *
  * 채널마다 세마포어가 따로 있어 한 번에 한 채널만 기다릴 수 있다.
  * 여러 채널을 함께 기다리려면 어느 채널을 묶을지 정해야 하는데, 그것은
@@ -287,9 +288,17 @@ void uartRxNotify(uint8_t ch)
   }
 }
 
-void uartSetRxNotify(uart_rx_notify_t cb)
+bool uartSetRxNotify(uart_rx_notify_t cb)
 {
+  // 조용히 덮어쓰면 먼저 건 쪽이 알림을 잃는다. 증상이 "가끔 느리다" 로만
+  // 나타나 원인을 찾기 매우 어렵다. 이미 있으면 거절한다.
+  if (rx_notify_cb != NULL && cb != NULL)
+  {
+    return false;
+  }
+
   rx_notify_cb = cb;
+  return true;
 }
 
 bool uartFlush(uint8_t ch)

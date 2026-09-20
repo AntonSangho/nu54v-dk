@@ -40,6 +40,9 @@ void cliMgrRxNotify(uint8_t ch)
 /* 지금 봐야 할 채널들에 처리할 입력이 있나 */
 static bool cliMgrHasInput(void)
 {
+  // 필터가 돌려보낸 바이트를 손에 쥔 채 잠들면 안 된다.
+  // 그 바이트는 다음 바퀴 cliMain() 이 꺼내므로 큐에는 안 보인다.
+  if (cliHasPending() == true) return true;
   if (cliAvailable() > 0) return true;
 #ifdef _USE_HW_BLE_NUS
   if (uartAvailable(HW_UART_CH_CLI) > 0) return true;
@@ -62,7 +65,10 @@ bool cliMgrInit(void)
 
 
   k_sem_init(&rx_sem, 0, 1);
-  uartSetRxNotify(cliMgrRxNotify);
+  if (uartSetRxNotify(cliMgrRxNotify) != true)
+  {
+    return false;                 // 이미 다른 쪽이 걸었다. 조용히 지면 안 된다
+  }
 
   ret = cliOpen(cli_ch, cli_baud);
 

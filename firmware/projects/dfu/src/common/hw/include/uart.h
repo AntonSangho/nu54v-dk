@@ -30,7 +30,8 @@ typedef struct uart_driver_t_
   uint32_t (*write)(uint8_t *p_data, uint32_t length);
 } uart_driver_t;
 
-/* 어느 채널이든 수신되면 불린다 (ISR 문맥). 여러 채널을 함께 기다리는 쪽이 건다. */
+/* 어느 채널이든 수신되면 불린다 (ISR 또는 드라이버 스레드 문맥).
+ * 여러 채널을 함께 기다리는 쪽이 건다. 하나만 걸 수 있다. */
 typedef void (*uart_rx_notify_t)(uint8_t ch);
 
 
@@ -43,7 +44,7 @@ bool     uartSetDriver(uint8_t ch, uart_driver_t *p_driver);
 bool     uartClose(uint8_t ch);
 uint32_t uartAvailable(uint8_t ch);
 bool     uartWaitRx(uint8_t ch, uint32_t timeout_ms);
-void     uartSetRxNotify(uart_rx_notify_t cb);
+bool     uartSetRxNotify(uart_rx_notify_t cb);
 void     uartRxNotify(uint8_t ch);
 bool     uartFlush(uint8_t ch);
 uint8_t  uartRead(uint8_t ch);

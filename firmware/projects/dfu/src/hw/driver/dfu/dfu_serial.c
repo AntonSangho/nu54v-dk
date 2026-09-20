@@ -361,8 +361,10 @@ uint16_t dfuSerialGetMtu(const struct net_buf *p_nb)
 {
   (void)p_nb;
 
-  // 한 프레임에 실을 수 있는 원본 바이트 수. base64(4/3) + 길이·CRC 자리를 뺀다.
-  return (DFU_SERIAL_FRAG_MAX / 4) * 3 - 8;
+  // 한 패킷의 상한이다. **한 줄의 상한이 아니다** — 송신은 mcumgr_serial_tx_pkt()
+  // 가 줄로 쪼개고 수신은 process_frag() 가 다시 잇는다. 그래서 DFU_SERIAL_FRAG_MAX
+  // (줄 길이 상한)가 아니라 net_buf 크기가 상한이다.
+  return CONFIG_MCUMGR_TRANSPORT_NETBUF_SIZE - 8;
 }
 
 #endif

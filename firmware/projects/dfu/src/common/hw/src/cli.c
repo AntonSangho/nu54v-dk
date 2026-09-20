@@ -92,9 +92,13 @@ cli_t   cli_node;
 static cli_rx_filter_t rx_filter = NULL;
 
 /* 필터가 가져가지 않은 바이트. cli 가 다음에 처리한다.
- * 필터에 주려면 큐에서 꺼내야 하는데, 안 가져가면 되돌릴 곳이 없어 여기 둔다. */
+ * 필터에 주려면 큐에서 꺼내야 하는데, 안 가져가면 되돌릴 곳이 없어 여기 둔다.
+ *
+ * 어느 채널에서 꺼낸 것인지 같이 담는다. 그래야 cli 가 그 사이 다른 채널로
+ * 옮겨 갔을 때 엉뚱한 포트로 에코하지 않는다. */
 static bool    pend_valid = false;
 static uint8_t pend_data  = 0;
+static uint8_t pend_ch    = 0;
 
 
 
@@ -241,6 +245,11 @@ bool cliSetRxFilter(cli_rx_filter_t filter)
  * 필터가 가져가지 않은 바이트가 나오면 거기서 멈추고 false 를 돌려준다.
  * 그 바이트는 pend 에 남아 cliMain() 이 처리한다.
  */
+bool cliHasPending(void)
+{
+  return pend_valid;
+}
+
 bool cliFilterPump(uint8_t ch)
 {
   if (rx_filter == NULL) return false;
@@ -253,6 +262,7 @@ bool cliFilterPump(uint8_t ch)
     {
       pend_valid = true;
       pend_data  = rx_data;
+      pend_ch    = ch;
       return false;
     }
   }
@@ -267,8 +277,9 @@ bool cliMain(void)
     return false;
   }
 
-  // 필터가 돌려보낸 바이트가 먼저다
-  if (pend_valid == true)
+  // 필터가 돌려보낸 바이트가 먼저다. 단 그 채널을 cli 가 보고 있을 때만
+  // 처리한다 (아니면 에코가 엉뚱한 포트로 나간다).
+  if (pend_valid == true && pend_ch == cli_node.ch)
   {
     pend_valid = false;
     cliUpdate(&cli_node, pend_data);

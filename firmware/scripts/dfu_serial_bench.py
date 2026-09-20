@@ -146,13 +146,20 @@ def cbor_dec(data: bytes):
 
 
 class SmpSerial:
-    def __init__(self, port, baud=115200, verbose=False):
+    def __init__(self, port, baud=115200, verbose=False, ahead=512):
         self.ser = serial.Serial(port, baud, timeout=0)
+        self.baud = baud
         self.seq = 0
         self.verbose = verbose
         self.buf = b""
         self.b64 = ""
         self.text = []
+
+        # 프로브(DAPLink)는 USB 로 받은 것을 UART 로 흘려보낸다. 흐름제어가 없어
+        # 전선보다 빨리 쓰면 내부 버퍼가 넘치고 **조용히 버린다**.
+        # 그래서 전선 속도에 맞춰 쓴다. 전선이 어차피 병목이라 손해가 없다.
+        self.ahead = ahead              # 앞질러 써도 되는 바이트 (프로브 버퍼 여유)
+        self.drain_at = time.perf_counter()
 
     def close(self):
         self.ser.close()
@@ -167,7 +174,29 @@ class SmpSerial:
         for i in range(0, len(b64), LINE_MAX):
             mark = MARK_PKT if i == 0 else MARK_FRAG
             out += mark + b64[i:i + LINE_MAX].encode() + b"\n"
-        self.ser.write(out)
+        self.write_paced(out)
+
+    # 전선이 비울 시각을 따라가며 쓴다 (프로브 버퍼 넘침 방지)
+    #
+    # 한 번에 ahead 바이트씩만 쓰고, 그만큼이 전선으로 빠져나갈 시간을 기다린다.
+    # 쪼개지 않으면 한 번의 write 가 이미 프로브 버퍼보다 커서 페이싱이 소용없다.
+    def write_paced(self, data):
+        if self.ahead <= 0:                       # 페이싱 끄기 (비교용)
+            self.ser.write(data)
+            return
+
+        budget = self.ahead * 10 / self.baud
+
+        for i in range(0, len(data), self.ahead):
+            part = data[i:i + self.ahead]
+            now = time.perf_counter()
+            if self.drain_at < now:
+                self.drain_at = now
+            if self.drain_at - now > budget:
+                time.sleep(self.drain_at - now - budget)
+
+            self.ser.write(part)
+            self.drain_at = max(self.drain_at, time.perf_counter()) + len(part) * 10 / self.baud
 
     # 줄을 모아 프레임을 뽑는다. 표식이 줄 중간에 있어도 찾는다
     # (cli 프롬프트가 줄바꿈 없이 앞에 붙어 온다).
@@ -293,12 +322,20 @@ def main():
     ap.add_argument("arg", nargs="?", help="upload: .bin 경로 / cli: 명령")
     ap.add_argument("--port")
     ap.add_argument("-n", type=int, default=30, help="ping 횟수 / upload 조각 수")
-    ap.add_argument("--chunk", type=int, default=200)
+    # 512 : 실측으로 가장 빠르고 안전한 값.
+    # 더 키우면 한 번에 쓰는 양이 프로브 버퍼를 넘어 조용히 잃고(흐름제어 없음),
+    # 안전하게 조이면 전선을 못 채워 오히려 느려진다 (1024 는 4.9, 512 는 6.0 KB/s).
+    ap.add_argument("--chunk", type=int, default=512)
+    # 조각 512 에서는 한 번에 쓰는 양(약 790 B)을 프로브가 견디므로 페이싱이 필요 없다
+    # (실측 5.55 vs 5.51 KB/s — 켜면 오히려 미세하게 손해). 조각을 더 키우거나
+    # 보率을 올려 프로브가 못 따라올 때 쓰는 안전장치로 남겨 둔다.
+    ap.add_argument("--ahead", type=int, default=0,
+                    help="전선보다 앞질러 쓸 바이트 (프로브 버퍼 여유). 0 이면 페이싱 안 함")
     args = ap.parse_args()
 
     port = find_port(args.port)
     print(f"포트 : {port}")
-    s = SmpSerial(port)
+    s = SmpSerial(port, ahead=args.ahead)
     try:
         if args.mode == "cli":
             for line in s.cli(args.arg or "help"):

@@ -328,7 +328,12 @@ class SmpClient {
    * 그러면 처음부터 보내지 않으므로, 실제로 보낸 바이트를 따로 세어 돌려준다
    * (이미지 크기로 속도를 내면 이어받은 만큼 빨라 보인다).
    */
-  async upload(image, onProgress, chunkSize = 200, retries = 5) {
+  /*
+   * chunkSize 512 는 실측으로 고른 값이다 (200 → 512 로 5.0 → 6.0 KB/s).
+   * 더 키우면 한 번에 쓰는 양이 프로브의 USB→UART 버퍼를 넘는데, 흐름제어가
+   * 없어 조용히 버려진다. 속도에 맞춰 나눠 쓰면 이번엔 전선을 못 채워 느려진다.
+   */
+  async upload(image, onProgress, chunkSize = 512, retries = 5) {
     this.abort();                          // 앞서 멈춘 것이 남아 있으면 버린다
 
     const sha = new Uint8Array(await crypto.subtle.digest("SHA-256", image));
