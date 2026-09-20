@@ -336,6 +336,11 @@ class SmpClient {
     let sent = 0;
     let resumedAt = 0;
 
+    // 10 % 마다 실제 속도를 남긴다 (느려지면 어디서부터인지 보인다)
+    let rttSum = 0, rttCnt = 0, rttMax = 0;
+    let markPct = 0;
+    const t0 = performance.now();
+
     while (off < image.length) {
       const end = Math.min(off + chunkSize, image.length);
       const payload = { image: 1, off, data: image.subarray(off, end) };
@@ -343,6 +348,8 @@ class SmpClient {
         payload.len = image.length;
         payload.sha = sha;
       }
+
+      const tChunk = performance.now();
 
       // 조각 하나가 실패하면 같은 위치를 다시 보낸다.
       // 보드는 다음에 받을 위치(off)를 돌려주므로 같은 자리를 다시 보내도 안전하다.
@@ -367,6 +374,12 @@ class SmpClient {
 
       if (typeof rsp.off !== "number") throw new Error("응답에 off 가 없다");
 
+      // 왕복 시간을 모아 둔다. 어디서 시간이 새는지는 이것 말고는 알 길이 없다.
+      const rtt = performance.now() - tChunk;
+      rttSum += rtt;
+      rttCnt++;
+      if (rtt > rttMax) rttMax = rtt;
+
       sent += end - off;
       if (off === 0 && rsp.off > end) {
         resumedAt = rsp.off;                 // 보드가 이어받을 위치를 알려 줬다
@@ -374,6 +387,15 @@ class SmpClient {
       }
       off = rsp.off;
       if (onProgress) onProgress(off, image.length);
+
+      const pct = Math.floor((off * 100) / image.length);
+      if (pct >= markPct + 10) {
+        markPct = pct - (pct % 10);
+        const sec = (performance.now() - t0) / 1000;
+        this.log(`${markPct}% — ${sec.toFixed(1)} 초, ${(sent / 1024 / sec).toFixed(2)} KB/s, `
+          + `조각 ${rttCnt} 개 왕복 평균 ${(rttSum / rttCnt).toFixed(0)} ms, 최대 ${rttMax.toFixed(0)} ms`);
+        rttSum = 0; rttCnt = 0; rttMax = 0;
+      }
     }
 
     return { sent, resumedAt };
