@@ -64,6 +64,14 @@
   .err { color: var(--err); }
   .note { font-size: 0.85rem; color: var(--dim); }
   .note code { font-family: var(--mono); font-size: 0.85em; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+  .tabs button {
+    border: none; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0;
+    background: none; padding: 10px 18px; color: var(--dim); font-weight: 500;
+  }
+  .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+  .panel { display: none; }
+  .panel.on { display: block; }
   .warn {
     border-left: 3px solid var(--accent); padding-left: 12px; margin: 12px 0;
     font-size: 0.88rem; color: var(--dim);
@@ -75,8 +83,15 @@
   <h1>NU54-DK 펌웨어 도구</h1>
   <div class="sub">브라우저에서 보드에 펌웨어를 굽는다. 설치할 것은 없다.</div>
 
+  <div class="tabs">
+    <button data-tab="swd" class="on">SWD (USB)</button>
+    <button data-tab="ble">BLE</button>
+    <button data-tab="serial">시리얼</button>
+  </div>
+
+  <div class="panel on" id="tab-swd">
   <div class="card">
-    <h2>1. 보드 연결</h2>
+    <h2>보드 연결</h2>
     <div class="row">
       <button id="connect" class="primary">USB 로 연결 (SWD)</button>
       <button id="disconnect" disabled>연결 끊기</button>
@@ -85,7 +100,7 @@
   </div>
 
   <div class="card">
-    <h2>2. 타깃 정보</h2>
+    <h2>타깃 정보</h2>
     <table>
       <tr><td>프로브</td><td id="i-probe">-</td></tr>
       <tr><td>SWD DP IDCODE</td><td id="i-idcode">-</td></tr>
@@ -104,7 +119,7 @@
   </div>
 
   <div class="card">
-    <h2>3. 펌웨어 굽기 (SWD)</h2>
+    <h2>펌웨어 굽기 — MCUboot + 앱</h2>
     <p class="note" style="margin-top:0">
       <b><code>firmware/projects/&lt;이름&gt;/build/merged.hex</code></b> 를 고른다.
       MCUboot 와 앱이 합쳐져 있어 한 번에 굽는다. 빈 보드도 된다.
@@ -120,13 +135,15 @@
     </div>
     <div id="progress" class="note" style="margin-top:10px"></div>
   </div>
+  </div><!-- /tab-swd -->
 
+  <div class="panel" id="tab-ble">
   <div class="card">
-    <h2>4. BLE 로 업데이트 (SMP)</h2>
+    <h2>BLE 로 앱 업데이트 (SMP)</h2>
     <p class="note" style="margin-top:0">
       케이블 없이 무선으로 앱만 갱신한다 (MCUboot 는 그대로).
       <code>build/&lt;앱&gt;/zephyr/zephyr.signed.bin</code> 을 고른다 —
-      <b>.hex 가 아니라 .bin</b> 이다. 버전이 올라가 있어야 한다.
+      <b>.hex 가 아니라 .bin</b> 이다. 버전은 올리지 않아도 된다.
     </p>
     <div class="row">
       <button id="ble-connect" class="primary">BLE 연결</button>
@@ -137,6 +154,26 @@
     <div id="ble-state" class="note" style="margin-top:10px"></div>
     <div id="ble-progress" class="note"></div>
   </div>
+  </div><!-- /tab-ble -->
+
+  <div class="panel" id="tab-serial">
+  <div class="card">
+    <h2>시리얼로 앱 업데이트 (SMP)</h2>
+    <p class="note" style="margin-top:0">
+      보드의 <b>cli 포트(VCOM1)</b> 를 고른다. 펌웨어가 SMP 프레임만 가려내므로
+      cli 와 같은 포트를 쓴다. 올리는 파일은 BLE 와 같은
+      <code>zephyr.signed.bin</code> 이다.
+    </p>
+    <div class="row">
+      <button id="ser-connect" class="primary">포트 열기</button>
+      <button id="ser-disconnect" disabled>닫기</button>
+      <input type="file" id="serbinfile" accept=".bin">
+      <button id="ser-upload" disabled>업데이트</button>
+    </div>
+    <div id="ser-state" class="note" style="margin-top:10px"></div>
+    <div id="ser-progress" class="note"></div>
+  </div>
+  </div><!-- /tab-serial -->
 
   <div class="card">
     <h2>로그</h2>
@@ -153,6 +190,11 @@
        Safari 와 Firefox 는 지원하지 않는다.</p>
     <p><b>BLE 업데이트</b> — 다른 프로그램(baram-term 등)이 보드에 BLE 로 연결 중이면
        장치 목록에 보이지 않는다 (연결 중에는 광고를 멈춘다). 먼저 끊는다.</p>
+    <p><b>시리얼 업데이트</b> — 같은 포트를 다른 프로그램이 열고 있으면 안 된다.
+       Web Serial 은 Chrome / Edge <b>데스크톱</b>에서만 동작한다.</p>
+    <p><b>확정(confirm)</b> — 업데이트 뒤 새 펌웨어는 <b>확정 전</b> 상태다.
+       그대로 리셋하면 이전 버전으로 돌아간다. 보드 cli 에서 <code>dfu confirm</code> 을 하거나,
+       다시 연결해 [확정] 을 누른다.</p>
     <p><b>연결이 안 되면</b> — 다른 프로그램(pyOCD, VS Code 디버거, nRF Connect)이 프로브를 쥐고 있으면 실패한다.
        먼저 닫는다. 보드의 <code>SW1 DISABLE_SWD</code> 는 OFF 여야 한다.</p>
     <p><b>주의</b> — 이 보드의 내장 프로브는 VCOM0 를 쓰는 펌웨어가 돌면 SWD 가 죽는다
@@ -167,6 +209,7 @@
 <script src="js/flash.js"></script>
 <script src="js/smp.js"></script>
 <script src="js/ble.js"></script>
+<script src="js/serial.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

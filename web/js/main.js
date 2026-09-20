@@ -276,6 +276,26 @@ checkSupport();
 log("준비됨");
 
 
+/* 두 해시가 같은지 */
+function sameHash(a, b) {
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+
+//-- 탭
+//
+document.querySelectorAll(".tabs button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tabs button").forEach((b) => b.classList.remove("on"));
+    document.querySelectorAll(".panel").forEach((p) => p.classList.remove("on"));
+    btn.classList.add("on");
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.add("on");
+  });
+});
+
+
 //-- BLE (SMP) 업데이트
 //
 let bleTransport = null;
@@ -359,6 +379,12 @@ async function bleUpload() {
     const target = images.find((i) => i.slot === 1);
     if (!target) throw new Error("slot1 에 이미지가 없다");
 
+    const active = images.find((i) => i.active);
+    if (active && sameHash(active.hash, target.hash)) {
+      log("이미 같은 이미지다. 바꿀 것이 없다", "ok");
+      return;
+    }
+
     await bleClient.imageState(target.hash, false);    // test 표시
     log("test 표시 완료. 리셋한다", "ok");
     await showBleState();
@@ -382,3 +408,116 @@ $("ble-connect").addEventListener("click", bleConnect);
 $("ble-disconnect").addEventListener("click", bleDisconnect);
 $("binfile").addEventListener("change", () => setBleConnected(bleTransport !== null));
 $("ble-upload").addEventListener("click", bleUpload);
+
+
+//-- 시리얼 (SMP) 업데이트
+//
+// BLE 와 흐름이 같다. 전송 계층만 다르다.
+//
+let serTransport = null;
+let serClient = null;
+
+function setSerConnected(on) {
+  $("ser-connect").disabled = on;
+  $("ser-disconnect").disabled = !on;
+  $("ser-upload").disabled = !on || $("serbinfile").files.length === 0;
+}
+
+async function showSerState() {
+  try {
+    const rsp = await serClient.imageList();
+    $("ser-state").textContent = (rsp.images || []).map((img) => {
+      const flags = [
+        img.active ? "active" : null,
+        img.confirmed ? "confirmed" : null,
+        img.pending ? "pending" : null,
+      ].filter(Boolean).join(",") || "-";
+      return `slot${img.slot} v${img.version} [${flags}]`;
+    }).join("   ");
+    return rsp.images || [];
+  } catch (e) {
+    $("ser-state").textContent = "";
+    log(`이미지 목록 실패 : ${e.message || e}`, "err");
+    return [];
+  }
+}
+
+async function serConnect() {
+  if (!navigator.serial) {
+    log("이 브라우저는 Web Serial 을 지원하지 않는다 (Chrome / Edge 데스크톱)", "err");
+    return;
+  }
+  try {
+    serTransport = new SerialSmpTransport(log);
+    await serTransport.connect();
+    serClient = new SmpClient(serTransport, log);
+    setSerConnected(true);
+    log("시리얼 열림", "ok");
+    await showSerState();
+  } catch (e) {
+    log(`시리얼 열기 실패 : ${e.message || e}`, "err");
+    serTransport = null;
+    serClient = null;
+    setSerConnected(false);
+  }
+}
+
+async function serDisconnect() {
+  if (serTransport) await serTransport.disconnect();
+  serTransport = null;
+  serClient = null;
+  setSerConnected(false);
+  $("ser-state").textContent = "";
+  log("시리얼 닫음");
+}
+
+async function serUpload() {
+  const file = $("serbinfile").files[0];
+  if (!file || !serClient) return;
+
+  $("ser-upload").disabled = true;
+  try {
+    const image = new Uint8Array(await file.arrayBuffer());
+    log(`--- ${file.name} (${(image.length / 1024).toFixed(0)} KB) ---`);
+
+    const t0 = performance.now();
+    await serClient.upload(image, (done, total) => {
+      const pct = Math.floor((done * 100) / total);
+      $("ser-progress").textContent =
+        `업로드 ${pct}%  (${(done / 1024).toFixed(0)} / ${(total / 1024).toFixed(0)} KB)`;
+    });
+    const sec = (performance.now() - t0) / 1000;
+    log(`업로드 완료 : ${sec.toFixed(1)} 초 (${(image.length / 1024 / sec).toFixed(1)} KB/s)`, "ok");
+
+    const images = await showSerState();
+    const target = images.find((i) => i.slot === 1);
+    if (!target) throw new Error("slot1 에 이미지가 없다");
+
+    const active = images.find((i) => i.active);
+    if (active && sameHash(active.hash, target.hash)) {
+      log("이미 같은 이미지다. 바꿀 것이 없다", "ok");
+      return;
+    }
+
+    await serClient.imageState(target.hash, false);
+    log("test 표시 완료. 리셋한다", "ok");
+    await showSerState();
+
+    try {
+      await serClient.reset();
+    } catch (e) {
+      // 리셋하면 포트가 끊길 수 있다
+    }
+    log("리셋했다. 새 펌웨어가 뜨면 cli 에서 dfu confirm 한다", "ok");
+  } catch (e) {
+    log(`업데이트 실패 : ${e.message || e}`, "err");
+  } finally {
+    $("ser-upload").disabled = false;
+    $("ser-progress").textContent = "";
+  }
+}
+
+$("ser-connect").addEventListener("click", serConnect);
+$("ser-disconnect").addEventListener("click", serDisconnect);
+$("serbinfile").addEventListener("change", () => setSerConnected(serTransport !== null));
+$("ser-upload").addEventListener("click", serUpload);

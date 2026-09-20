@@ -40,7 +40,7 @@
 | 16 | `ble_nus` | BLE 스택/역할/서비스 3층, NUS 를 uart 가상 채널로 → cli 가 BLE 에서 동작 | RADIO | uart(`uartSetDriver`), cli_mgr (NU87) | 수신 콜백 → 알림, 광고/연결 간격은 17 | ✅ |
 | 17 | `ble_power` | BLE 저전력 튜닝: 광고 주기, 연결 파라미터, 슬레이브 레이턴시 | RADIO | | 광고/연결 상태별 평균 전류 표 | |
 | 18 | `dfu` | MCUboot(swap using move) + SMP 로 펌웨어 업데이트. **시리얼 SMP 는 cli 포트(VCOM1) 위에 얹는다** (VCOM0 는 프로브 결함으로 못 쓴다). 서명 키는 저장소에 포함. `dfu info/test/confirm/revert/serial` CLI, `fw dfu` + VS Code 태스크 | slot0/slot1 파티션 | nrf/samples/dfu/smp_svr, nrf54l15-bd `nrf54l-fw-fota` | MCUboot 56 KB, 부팅 시간 미측정 | ✅ |
-| 19 | `web_dfu` | <https://chcbaram.github.io/nu54v-dk/> — **WebUSB(SWD)** 로 빈 보드에 MCUboot+앱 전체 설치, **Web Bluetooth(SMP)** 로 앱 무선 업데이트. Web Serial 남음 (§8) | | dapjs (버그 3개 우회), 직접 만든 SMP/CBOR | 업로드 중 연결 간격만 당기고 복귀 | 진행 중 |
+| 19 | `web_dfu` | <https://chcbaram.github.io/nu54v-dk/> — 탭으로 **WebUSB(SWD)** / **BLE** / **시리얼**. SWD 는 빈 보드에 MCUboot+앱 전체 설치, 나머지는 앱 무선·유선 업데이트 (§8) | | dapjs (버그 3개 우회), 직접 만든 SMP/CBOR | 업로드 중 연결 간격만 당기고 복귀 | ✅ |
 | 20 | `app` | 위 모듈을 합친 기본 펌웨어 (cli + ble_nus + 센서 + 전원 관리) | 전체 | ap/system | 동작 모드별 전류 | |
 | 21 | `epaper` | **WeAct 4.2" e-paper (SSD1683, 400×300)** (마지막 단계, app 에 화면 추가) : SPI, 화면 버퍼, 글자/도형, 전체/부분 갱신 | SPI00 + GPIO (P2 헤더, §3) | spi, lcd (+ lcd/ssd1306 구조) | 갱신 후 deep sleep, 부분 갱신, 필요 시 VCC 차단 | |
 
@@ -187,9 +187,16 @@ GitHub Pages 가 HTTPS 라 세 API 모두의 요구 조건을 만족한다. 사�
 |---|---|---|---|---|
 | **SWD** | WebUSB + CMSIS-DAP (dapjs) | 부트로더+앱 전체 설치, 벽돌 복구 | **가능** | ✅ 304 KB / 9.5 초 |
 | **BLE** | Web Bluetooth + SMP | 앱 무선 업데이트 | 불가 | ✅ 247 KB / 17~42 초 |
-| 시리얼 | Web Serial + SMP | 업데이트 / 자동 시험 | 불가 | 남음 |
+| **시리얼** | Web Serial + SMP | 업데이트 / 자동 시험 | 불가 | ✅ 247 KB / 48 초 |
 
-SMP 와 CBOR 는 직접 만들었다 (`web/js/smp.js`). 전송 계층만 바꾸면 시리얼에도 그대로 쓴다.
+페이지는 탭(SWD / BLE / 시리얼)으로 나뉘고 로그는 아래에 계속 보인다.
+
+SMP 와 CBOR 는 직접 만들었다 (`web/js/smp.js`). 전송 계층만 갈아 끼우면 된다
+(`ble.js`, `serial.js`).
+
+**시리얼 프레이밍에서 걸린 것** : base64 는 줄마다 따로 인코딩하는 것이 아니라
+**하나의 연속 문자열을 줄로 쪼갠 것**이다 (마지막 줄에만 `=` 패딩). 받을 때도 문자열을
+먼저 이어 붙인 뒤 디코딩해야 한다. 줄마다 디코딩하면 아무것도 안 나온다.
 보드는 길이를 미리 주지 않는 CBOR(indefinite length)로 답하므로 그것을 읽어야 한다.
 광고에 SMP UUID 가 없으므로 (NUS UUID 만 실린다) 장치는 **이름**으로 찾는다.
 
