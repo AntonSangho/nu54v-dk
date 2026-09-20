@@ -444,7 +444,7 @@ $("ble-connect").addEventListener("click", bleConnect);
 $("ble-disconnect").addEventListener("click", bleDisconnect);
 $("binfile").addEventListener("change", () => setBleConnected(bleTransport !== null));
 $("ble-upload").addEventListener("click", bleUpload);
-$("ble-confirm").addEventListener("click", () => confirmActive(bleClient, showBleState, "BLE"));
+$("ble-confirm").addEventListener("click", () => confirmActive(bleClient, showBleState, "BLE", "ble"));
 
 
 /*
@@ -453,14 +453,21 @@ $("ble-confirm").addEventListener("click", () => confirmActive(bleClient, showBl
  * MCUboot 는 확정 전인 이미지가 돌고 있으면 slot1 을 되돌아갈 자리로 잡아 두고
  * 새 업로드를 거절한다 (rc=6). 지금 도는 펌웨어가 멀쩡하다는 판단이 섰을 때 누른다.
  */
-async function confirmActive(client, showState, name) {
+async function confirmActive(client, showState, name, prefix) {
+  // 확정 뒤 상태를 다시 읽는 동안에도 버튼을 막는다.
+  // 그 사이 [업데이트] 를 누르면 읽던 요청이 끊겨 "중단했다" 가 뜬다.
+  $(`${prefix}-upload`).disabled = true;
+  $(`${prefix}-confirm`).disabled = true;
   try {
     await client.confirmActive();
     log(`${name} : 실행 중 이미지를 확정했다`, "ok");
+    await showState();
   } catch (e) {
     log(`${name} : 확정 실패 — ${e.message || e}`, "err");
+  } finally {
+    $(`${prefix}-confirm`).disabled = false;
+    $(`${prefix}-upload`).disabled = false;
   }
-  await showState();
 }
 
 
@@ -618,4 +625,4 @@ $("ser-connect").addEventListener("click", serConnect);
 $("ser-disconnect").addEventListener("click", serDisconnect);
 $("serbinfile").addEventListener("change", () => setSerConnected(serTransport !== null));
 $("ser-upload").addEventListener("click", serUpload);
-$("ser-confirm").addEventListener("click", () => confirmActive(serClient, showSerState, "시리얼"));
+$("ser-confirm").addEventListener("click", () => confirmActive(serClient, showSerState, "시리얼", "ser"));
