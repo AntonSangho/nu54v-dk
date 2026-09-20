@@ -1,0 +1,8 @@
+{
+  // nRF Connect 확장으로 빌드할 때도 공용 보드 패키지를 찾도록 한다.
+  "nrf-connect.boardRoots": ["${workspaceFolder}/../.."],
+  "cortex-debug.variableUseNaturalFormat": false,
+  "files.associations": {
+    "*.h": "c"
+  }
+}

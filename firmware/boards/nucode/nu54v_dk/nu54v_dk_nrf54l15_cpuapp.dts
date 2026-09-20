@@ -6,6 +6,8 @@
 /dts-v1/;
 
 #include <nordic/nrf54l15_cpuapp.dtsi>
+#include <zephyr/dt-bindings/adc/adc.h>
+#include <zephyr/dt-bindings/adc/nrf-saadc.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include "nu54v_dk-pinctrl.dtsi"
 
@@ -75,6 +77,16 @@
 			label = "SW4";
 			zephyr,code = <INPUT_KEY_3>;
 		};
+	};
+
+	/*
+	 * ADC 채널 (프로젝트 overlay 에서 &adc 를 okay 로 켠다)
+	 *   VBAT : P1.12 (AIN5), VBAT ─ R8 470K ─┬─ 핀, └─ R11 1M ─ GND
+	 *          분압비 1M/(470K+1M) = 0.680 → 배터리 전압 = 읽은 값 × 1.470
+	 */
+	zephyr,user {
+		io-channels = <&adc 5>;
+		io-channel-names = "vbat";
 	};
 
 	aliases {
@@ -189,6 +201,26 @@
 	pinctrl-names = "default", "sleep";
 	/* CONFIG_PM_DEVICE_RUNTIME=y 일 때 사용하지 않는 동안 자동 suspend (저전력) */
 	zephyr,pm-device-runtime-auto;
+};
+
+/*
+ * SAADC. 분압기 출력 임피던스가 320 kΩ (470K ‖ 1M) 이라 기본 획득시간(10 us)으로는
+ * 값이 낮고 흔들린다 → 40 us + 하드웨어 오버샘플링 16회.
+ * 입력 최대 4.2 V × 0.68 = 2.86 V, gain 1/4 + 내부기준 0.9 V → 풀스케일 3.6 V.
+ */
+&adc {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	channel@5 {
+		reg = <5>;
+		zephyr,gain = "ADC_GAIN_1_4";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 40)>;
+		zephyr,input-positive = <NRF_SAADC_AIN5>;
+		zephyr,resolution = <12>;
+		zephyr,oversampling = <4>;
+	};
 };
 
 /* 메모리맵: docs/01_memory_map.md */

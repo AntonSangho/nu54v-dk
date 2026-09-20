@@ -42,7 +42,7 @@
 | P1.09 | SW2 | 스위치 → GND | `button1` / `sw1` |
 | P1.10 | LED2 | 버퍼 → NPN → LED | `led1` |
 | P1.11 (AIN4) | PMIC_INT | BQ25186 /INT (SB1) | (미정의) |
-| P1.12 (AIN5) | VBAT_MON | VBAT × 1M/(470k+1M) ≈ 0.68 (SB4) | (미정의) |
+| P1.12 (AIN5) | VBAT_MON | VBAT × 1M/(470k+1M) ≈ 0.68 (SB4) | `zephyr,user` io-channel `vbat` (`&adc channel@5`) |
 | P1.13 | SW1 | 스위치 → GND | `button0` / `sw0` |
 | P1.14 | LED4 | 버퍼 → NPN → LED | `led3` |
 | P2.07 | LED3 | 버퍼 → NPN → LED, **MOD_SWO 와 공유 (SB13)** | `led2` |
@@ -86,5 +86,6 @@ DTS 결정 사항:
 - [ ] 모듈 내부 DC/DC 인덕터 유무 → DC/DC 활성화
 - [ ] HFXO 내부 부하 용량 값 (모듈 데이터시트)
 - [x] 솔더 브리지 (baram-nrf54-arduino 실측): SB1~SB4(PMIC INT/PG/CE, VBAT_MON), SB9~SB12(VCOM1), SB5~SB8(VCOM0), SB14/SB15(Qwiic) 연결, SB20/SB21 미실장. 나머지는 미확인
-- [ ] PMIC(BQ25186) / VBAT_MON / Qwiic 노드 정의 (I2C·ADC 예제에서)
+- [x] VBAT_MON : ADC 채널로 정의 (12_adc)
+- [ ] PMIC(BQ25186) 노드 정의 (13 pmic)
 - [x] P1.02/P1.03 NFC 핀 겸용 → `board.c` 에서 `NFCT.PADCONFIG` 끔 (리셋값이 NFC 활성). I2C 동작 확인 (05)

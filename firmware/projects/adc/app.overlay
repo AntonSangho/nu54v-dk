@@ -1,0 +1,8 @@
+/*
+ * ADC (SAADC) 활성화. 채널 정의는 보드 DTS 에 있다 (VBAT : AIN5).
+ * 칩 온도(&temp) 는 보드 기본값으로 켜져 있다.
+ */
+
+&adc {
+	status = "okay";
+};

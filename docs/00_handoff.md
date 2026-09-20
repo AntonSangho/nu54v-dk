@@ -19,6 +19,7 @@
 | 09 | [09_log.md](09_log.md) | 로그: boot/list 버퍼, `log` CLI |
 | 10 | [10_module.md](10_module.md) | ap 모듈 구조, 모듈별 스레드 (cli_mgr) |
 | 11 | [11_power.md](11_power.md) | 리셋 원인, System OFF (버튼/GRTC 깨우기), **시험 절차(SWD 분리)** |
+| 12 | [12_adc.md](12_adc.md) | 배터리 전압(ADC), 칩 온도 |
 | - | [roadmap.md](roadmap.md) | 브링업 로드맵 (05 이후 예제 계획, BLE NUS ↔ baram-term) |
 
 새 기능은 [roadmap.md](roadmap.md) 의 번호대로 `NN_<기능>.md` 를 추가하고 위 표에 적는다.
@@ -39,6 +40,7 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-20 | `projects/adc` : VBAT(AIN5, ×1.470, 40 µs + 오버샘플링/평균), 칩 온도. 보드 DTS 에 ADC 채널 추가 |
 | 2026-09-20 | `projects/power` : reset/power 모듈. System OFF 가 안 깨어나던 원인 = SWD 디버그 모드 (baram-nrf54-arduino F8) → DISABLE_SWD + 전원 재인가로 GRTC/버튼 깨우기 확인. 전류 측정은 나중에 |
 | 2026-09-20 | GitHub 공개 저장소 https://github.com/chcbaram/nu54v-dk (MIT). `projects/module` : NU87 module + cli_mgr 스레드, `moduleWaitReady`, main 은 잠듦 |
 | 2026-09-20 | `projects/log` : nu54dk log.c (+ ISR 안전, 길이 제한), NU87 순서로 hwInit 정리 |
@@ -58,14 +60,7 @@
 - [ ] LED 육안 확인, VS Code F5 디버깅 확인
 - [ ] Windows / Linux 에서 빌드·다운로드·디버깅 확인
 - [ ] 소비전류 측정 (J1 + PPK2, SWD 분리) — [11_power.md](11_power.md) §5 표 채우기, DC/DC 판단
-- [ ] **12 adc (다음 작업, 조사만 끝남)**
-  - 레퍼런스: nrf54l15-bd `firmware/nrf54l-fw/src/hw/driver/adc.c` (API `adcInit/adcRead/adcReadVoltage`, 채널은 DTS `zephyr,user` io-channels). lock 이 FreeRTOS 용이라 `k_mutex` 로 바꿀 것
-  - VBAT_MON : P1.12 = AIN5, 분압 470K/1M → 배터리 = 읽은 값 × 1.470 (baram-nrf54-arduino `docs/boards/NU54V-DK.md`)
-  - 분압기 출력 임피던스 320 kΩ → 기본 획득시간 10 µs 로는 값이 낮고 흔들림. nRF54L SAADC 는 3/5/10/15/20/40 µs 지원 → **40 µs + 오버샘플링**
-  - gain 1/4 + 내부 기준 0.9 V → 풀스케일 3.6 V (4.2 V × 0.68 = 2.86 V 입력, VDD 3.3 V 이하)
-  - 칩 온도 : `&temp` (nordic,nrf-temp) 는 보드 DTS 에서 이미 okay → Zephyr sensor API (DIE_TEMP)
-  - 새 프로젝트는 `power` 를 복사해서 시작 (다운로드하려면 DAP SW1 `DISABLE_SWD` OFF)
-- [ ] 다음 예제: [roadmap.md](roadmap.md) 순서 (**12 adc** → 13 pmic → … → 16 ble_nus → … → 20 epaper(마지막))
+- [ ] 다음 예제: [roadmap.md](roadmap.md) 순서 (**13 pmic** → 14 nvs → … → 16 ble_nus → … → 20 epaper(마지막))
 - [ ] e-paper 모델(흑백/흑백적)과 실제 배선 핀 확정
 - [ ] 보드 미확인 항목 ([02_board_package.md](02_board_package.md) §5): DC/DC, HFXO 부하, 솔더 브리지
 
