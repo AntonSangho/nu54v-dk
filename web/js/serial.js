@@ -64,6 +64,7 @@ class SerialSmpTransport {
     this.reader = null;
     this.writer = null;
     this.onPacket = null;
+    this.onText = null;       // SMP 가 아닌 줄 (보드 cli 출력)
 
     this.line = "";           // 받는 중인 한 줄
     this.b64 = "";            // 이어 붙이는 중인 base64 문자열
@@ -175,7 +176,9 @@ class SerialSmpTransport {
       }
       this.b64 += line.slice(2);
     } else {
-      return;                                 // cli 출력이다. 무시한다
+      // cli 출력이다. 듣는 쪽이 있으면 넘긴다 (보드 상태를 물어볼 때 쓴다).
+      if (this.onText) this.onText(line);
+      return;
     }
 
     // 4 글자 = 3 바이트. 지금까지 온 만큼만 디코딩해 길이를 본다.
@@ -211,6 +214,34 @@ class SerialSmpTransport {
     }
     this.cnt.packets++;
     if (this.onPacket) this.onPacket(packet);
+  }
+
+  /*
+   * 보드 cli 에 한 줄 보내고 잠시 동안의 출력을 모은다.
+   *
+   * SMP 와 같은 포트를 쓰므로 업로드 결과를 그 자리에서 물어볼 수 있다
+   * (리셋하면 보드의 계수기가 지워져 나중에는 볼 수 없다).
+   */
+  async command(line, waitMs = 700) {
+    if (!this.writer) throw new Error("시리얼이 열려 있지 않다");
+
+    const out = [];
+    const prev = this.onText;
+    this.onText = (t) => out.push(t);
+
+    try {
+      const bytes = new Uint8Array(line.length + 1);
+      for (let i = 0; i < line.length; i++) bytes[i] = line.charCodeAt(i);
+      bytes[line.length] = 0x0a;
+      await this.writer.write(bytes);
+      await new Promise((r) => setTimeout(r, waitMs));
+    } finally {
+      this.onText = prev;
+    }
+
+    // 에코된 명령 줄과 빈 줄은 뺀다
+    return out.map((t) => t.replace(/\x1b\[[0-9;]*m/g, "").trim())
+              .filter((t) => t !== "" && !t.endsWith(line));
   }
 
   async send(packet) {

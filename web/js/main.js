@@ -526,6 +526,34 @@ async function serDisconnect() {
   log("시리얼 닫음");
 }
 
+/*
+ * 보드 쪽 계수기를 로그에 남긴다.
+ *
+ * 같은 포트로 cli 가 붙어 있으므로 명령을 그대로 보낼 수 있다.
+ * **리셋 전에** 불러야 한다. 리셋하면 보드의 계수기가 모두 0 이 된다.
+ */
+async function showBoardCounters() {
+  // 앞쪽(슬롯 정보 등)은 화면에 이미 있다. 관심 있는 줄부터 끝까지 가져온다.
+  // 버려진 조각 내용은 들여쓴 다음 줄에 오므로 정규식으로 한 줄씩 거르면 놓친다.
+  const from = /serial\.|rx drop|rx stop/;
+
+  for (const cmd of ["dfu info", "uart info"]) {
+    try {
+      const all = await serTransport.command(cmd);
+      const at = all.findIndex((t) => from.test(t));
+      const lines = at < 0 ? [] : all.slice(at);
+
+      if (lines.length > 0) {
+        log(`보드 ${cmd} :`);
+        lines.forEach((t) => log("   " + t));
+      }
+    } catch (e) {
+      log(`보드 ${cmd} 실패 : ${e.message || e}`);
+    }
+  }
+}
+
+
 async function serUpload() {
   const file = $("serbinfile").files[0];
   if (!file || !serClient) return;
@@ -554,6 +582,8 @@ async function serUpload() {
     log(`시리얼 집계 : 패킷 ${c.packets}, 수신 ${(c.rxBytes / 1024).toFixed(0)} KB, `
       + `줄 ${c.rxLines} (시작 ${c.markPkt} / 이어짐 ${c.markFrag}), `
       + `앞줄 잃음 ${c.orphanFrag}, base64 오류 ${c.badB64}, CRC 오류 ${c.crcErr}`);
+
+    await showBoardCounters();
 
     const images = await showSerState();
     const target = images.find((i) => i.slot === 1);
