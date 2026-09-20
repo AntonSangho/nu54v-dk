@@ -30,28 +30,29 @@
       "problemMatcher": { "base": "$gcc", "fileLocation": "absolute" }
     },
     {
-      "label": "Flash",
+      "label": "Flash (SWD, MCUboot + 앱)",
+      "detail": "프로브로 두 이미지를 모두 굽는다. 빈 보드·부트로더 변경·복구는 이것만 가능하다",
       "args": ["flash"],
       "dependsOn": "Build",
       "problemMatcher": []
     },
     {
       "label": "DFU (serial)",
-      "detail": "cli 포트(VCOM1) 자동 탐색 → 업로드 → test → 리셋 → confirm. 그 포트를 쓰는 프로그램(baram-term 등)은 먼저 닫는다",
+      "detail": "앱만 갱신한다 (MCUboot 는 그대로). cli 포트 자동 탐색 → 업로드 → test → 리셋 → confirm. 그 포트를 쓰는 프로그램(baram-term 등)은 먼저 닫는다",
       "args": ["dfu"],
       "dependsOn": "Build",
       "problemMatcher": []
     },
     {
       "label": "DFU (serial, 포트 선택)",
-      "detail": "포트를 직접 고른다. 보드가 여러 대일 때. (Firmware Task Manager 확장이 목록을 띄운다)",
+      "detail": "앱만 갱신한다. 포트를 직접 고른다 — 보드가 여러 대일 때 (Firmware Task Manager 확장이 목록을 띄운다)",
       "args": ["dfu", "--port", "${input:dfuPort}"],
       "dependsOn": "Build",
       "problemMatcher": []
     },
     {
       "label": "DFU (BLE)",
-      "detail": "BLE 로 업로드 → test → 리셋 → confirm. 다른 프로그램이 BLE 로 연결 중이면 먼저 끊어야 한다",
+      "detail": "앱만 갱신한다 (MCUboot 는 그대로). BLE 로 업로드 → test → 리셋 → confirm. 다른 프로그램이 BLE 로 연결 중이면 먼저 끊는다",
       "args": ["dfu", "--transport", "ble"],
       "dependsOn": "Build",
       "problemMatcher": []

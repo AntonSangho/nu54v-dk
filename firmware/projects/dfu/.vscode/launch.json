@@ -27,7 +27,7 @@
       "svdFile": "${workspaceFolder}/../../.tools/svd/nrf54l15_application.svd",
       "runToEntryPoint": "main",
       "loadFiles": [],
-      "preLaunchTask": "Flash",
+      "preLaunchTask": "Flash (SWD, MCUboot + 앱)",
       "showDevDebugOutput": "none"
     },
     {
