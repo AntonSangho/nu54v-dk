@@ -9,6 +9,9 @@
 
 
 #include "cli.h"
+#ifdef _USE_HW_DFU_SERIAL
+#include "dfu.h"
+#endif
 #include "uart.h"
 
 
@@ -229,7 +232,18 @@ bool cliMain(void)
 
   if (uartAvailable(cli_node.ch) > 0)
   {
-    cliUpdate(&cli_node, uartRead(cli_node.ch));
+    uint8_t rx_data = uartRead(cli_node.ch);
+
+#ifdef _USE_HW_DFU_SERIAL
+    // SMP(시리얼 DFU) 프레임이면 그쪽이 가져간다 (0x06 0x09 로 시작한다).
+    // 같은 포트에서 cli 와 DFU 가 공존한다 — BLE 의 NUS + SMP 와 같은 방식.
+    if (dfuSerialRxByte(cli_node.ch, rx_data) == true)
+    {
+      return true;
+    }
+#endif
+
+    cliUpdate(&cli_node, rx_data);
   }
 
   return true;

@@ -1,0 +1,16 @@
+# 프로젝트 Kconfig
+#
+# 시리얼 SMP 를 Zephyr 의 UART 전송(uart_mcumgr) 대신 우리 uart 모듈 위에 직접 얹는다.
+# 그러려면 프레이밍 헬퍼(serial_util.c)가 빌드되어야 하는데, 그 조건인
+# MCUMGR_TRANSPORT_SERIAL_HAS_SMP_OVER_CONSOLE 은 숨은 심볼이라 conf 파일로는 켤 수 없다.
+
+config NU54_DFU_SMP_UART
+	bool "SMP over the app's uart module (VCOM1)"
+	depends on MCUMGR
+	select MCUMGR_TRANSPORT_SERIAL_HAS_SMP_OVER_CONSOLE
+	help
+	  cli 가 쓰는 포트(VCOM1)에서 SMP 프레임(0x06 0x09 로 시작)을 가려내 처리한다.
+	  Zephyr 의 MCUMGR_TRANSPORT_UART 와 달리 포트를 따로 쓰지 않고,
+	  UART_INTERRUPT_DRIVEN 을 select 하지 않아 async(DMA) 설정을 건드리지 않는다.
+
+source "Kconfig.zephyr"

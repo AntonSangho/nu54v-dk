@@ -37,6 +37,7 @@ bool hwInit(void)
   nvsInit();
   rtcInit();
   bleInit();
+  dfuInit();
   pmicInit();
   adcInit();
   tempInit();

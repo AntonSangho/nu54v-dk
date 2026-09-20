@@ -101,6 +101,7 @@
 #define _USE_CLI_HW_I2C             1
 #define _USE_CLI_HW_SHTC3           1
 #define _USE_CLI_HW_BLE             1
+#define _USE_CLI_HW_DFU             1
 #define _USE_CLI_HW_RTC             1
 #define _USE_CLI_HW_NVS             1
 #define _USE_CLI_HW_PMIC            1

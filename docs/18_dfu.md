@@ -273,18 +273,84 @@ confirm   : slot0 v1.0.2 active,confirmed   slot1 v1.0.1
 pip install "smpclient[ble,serial]"
 ```
 
-**3단계 — `dfu` 모듈**
+## 7. 3단계 — `dfu` 모듈과 시리얼 SMP 재설계 (완료)
 
-- `hw/driver/dfu.c` + `dfu info / test / confirm / revert / erase` CLI
-- `dfu info` 는 `키 : 값` 한 줄 형식, 슬롯은 키에 붙인다 (baram-term 쪽 요청)
+### 시리얼 SMP 를 cli 포트(VCOM1) 위로 옮겼다
+
+2단계에서는 Zephyr 의 `MCUMGR_TRANSPORT_UART` 로 VCOM0(uart30)를 썼는데 두 가지가 걸렸다.
+
+1. 이 보드의 내장 프로브는 **VCOM0 를 쓰면 SWD 가 죽는다**
+   ([reports/2026-09-20_daplink_vcom0_swd.md](reports/2026-09-20_daplink_vcom0_swd.md))
+2. `UART_MCUMGR` 이 `UART_INTERRUPT_DRIVEN` 을 select 해서 cli 포트까지 async 가 아니게 된다 (§4 함정 6)
+
+그래서 **전송 계층만 직접 만들어 cli 가 쓰는 포트에 얹었다** (`hw/driver/dfu/dfu_serial.c`).
+BLE 에서 NUS 와 SMP 가 한 연결 위에 공존하는 것과 같은 방식이다.
 
 ```
-slot0.version : 1.2.3+4
-slot0.hash    : <hex>
-slot0.flags   : active,confirmed
-slot1.version : 1.2.4+0
-slot1.flags   : pending
+uart(VCOM1) → cliMain() → dfuSerialRxByte()
+                             │ 0x06 0x09 (또는 0x04 0x14) 로 시작하면 SMP 가 가져간다
+                             │ 아니면 false → cli 가 처리
+                             ↓
+                   mcumgr_serial_process_frag()      base64 + CRC16 해독
+                             ↓
+                       smp_rx_req() → mcumgr
+                             ↓
+                   mcumgr_serial_tx_pkt() → uartWrite()
 ```
+
+- 프레이밍은 표준이라 `mcumgr` / `smpclient` 가 그대로 붙는다. **포트 하나로 cli 와 DFU 가 공존한다.**
+- 프레임 표식(`0x06`/`0x04`)이 아닌 바이트는 cli 로 넘어간다. 표식 뒤가 어긋나면 그 바이트는 버린다
+  (cli 입력으로 쓰는 문자가 아니다).
+- `dfu serial off` 로 가로채기를 끌 수 있다.
+- 프레이밍 헬퍼(`serial_util.c`)는 숨은 심볼로 빌드되므로 프로젝트 `Kconfig` 에서 select 한다
+  (`CONFIG_NU54_DFU_SMP_UART`).
+
+**VCOM0 는 더 이상 쓰지 않는다.** `app.overlay` 의 `zephyr,uart-mcumgr` 설정도 뺐다.
+
+### 버스트를 받아내기 위한 두 가지
+
+| 항목 | 값 | 이유 |
+|---|---|---|
+| `cliMain()` 에서 프레임 수신 중 드레인 | `dfu_serial.c` | cliMain 은 한 번에 한 바이트만 처리한다. 그대로 두면 115200 bps 연속 수신을 못 따라가 업로드가 3.5 KB 에서 멈췄다 |
+| `UART_RX_BUF_LEN` | 1024 → **4096** | 한 패킷이 여러 줄로 연속해서 들어온다 (1218 B 패킷 → base64 약 1640 B) |
+
+그래도 호스트가 기본 프레임 크기로 밀어넣으면 26 KB 부근에서 멈춘다.
+**호스트에서 프레임을 512 로 줄이면 끝까지 올라간다.**
+
+```python
+SMPSerialTransport(max_smp_encoded_frame_size=512)
+```
+
+### `dfu` CLI
+
+출력은 `키 : 값` 한 줄 형식이다 (baram-term 쪽 요청 — 자동 시험에서 파싱한다).
+
+```
+dfu info      슬롯별 버전·플래그, 시리얼 SMP 상태
+dfu test      slot1 을 다음 부팅에 시도 (확정하지 않는다)
+dfu confirm   실행 중인 이미지를 확정 (되돌리기 취소)
+dfu revert    이전 이미지로 되돌리기
+dfu erase     slot1 지우기
+dfu serial on:off
+```
+
+### 3단계 검증 결과 (2026-09-20)
+
+시리얼(VCOM1) 업로드 → test → 리셋 → swap → `dfu confirm` 까지 실기 확인했다.
+
+```
+업로드      : 249 KB / 37.3 초 / 6.6 KB/s  (프레임 512)
+리셋 후     : version : 1.0.2+0
+dfu info    : slot0.flags : active,test      ← 확정 전
+              slot1.version : 1.0.1+0        ← 이전 버전 백업
+dfu confirm : OK
+dfu info    : slot0.flags : active,confirmed
+```
+
+- [x] cli 와 SMP 가 같은 포트에서 공존 (`dfu info` 의 `serial.pkt` 로 확인)
+- [x] **내장 프로브 SWD 가 살아 있다** — VCOM0 를 쓰지 않으므로
+- [ ] `slot1.flags` 의 pending 표시 (MCUboot 의 swap state 는 공개 API 가 없다. mcumgr `image list` 로 본다)
+- [ ] 해시 표시 (같은 이유. 필요하면 mcumgr 쪽을 쓴다)
 
 ## 7. 호스트 도구
 

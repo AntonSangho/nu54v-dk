@@ -19,6 +19,7 @@ extern "C" {
 #include "nvs.h"
 #include "rtc.h"
 #include "ble.h"
+#include "dfu.h"
 #include "ble_nus.h"
 #include "pmic.h"
 #include "adc.h"

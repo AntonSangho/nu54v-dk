@@ -26,7 +26,9 @@
 #include <zephyr/drivers/uart.h>
 
 
-#define UART_RX_BUF_LEN       1024
+// 수신 큐. SMP(시리얼 DFU)는 한 패킷이 여러 줄로 연속해서 들어와 버스트가 크다
+// (1218 바이트 패킷 → base64 약 1640 바이트). 1024 면 업로드 중에 넘친다.
+#define UART_RX_BUF_LEN       4096
 #define UART_RX_DMA_LEN       64
 #define UART_RX_TIMEOUT_US    1000
 #define UART_TX_TIMEOUT_MS    1000
