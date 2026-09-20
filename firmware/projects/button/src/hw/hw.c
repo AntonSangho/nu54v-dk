@@ -22,6 +22,8 @@ bool hwInit(void)
   logPrintf("Board         \t\t: %s\r\n", CONFIG_BOARD_TARGET);
 
   buttonInit();
+  i2cInit();
+  shtc3Init();
 
   return true;
 }

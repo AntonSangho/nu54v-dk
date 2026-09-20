@@ -23,6 +23,13 @@
 #define      HW_UART_CH_CLI         HW_UART_CH_LOG
 #define      HW_UART_MAX_CH         1
 
+#define _USE_HW_I2C
+#define      HW_I2C_MAX_CH          1                 // _DEF_I2C1 : i2c21 (Qwiic J5, PMIC)
+
+#define _USE_HW_SHTC3
+#define      HW_SHTC3_I2C_CH        _DEF_I2C1
+#define      HW_SHTC3_I2C_ADDR      0x70
+
 #define _USE_HW_BUTTON
 #define      HW_BUTTON_MAX_CH       BUTTON_PIN_MAX
 
@@ -36,6 +43,8 @@
 //
 #define _USE_CLI_HW_UART            1
 #define _USE_CLI_HW_BUTTON          1
+#define _USE_CLI_HW_I2C             1
+#define _USE_CLI_HW_SHTC3           1
 
 
 // 보드 스위치 SW1~SW4 (DTS button0~button3)

@@ -1,6 +1,7 @@
 # 09. 로그 (`firmware/projects/log`)
 
-button 예제(08) 위에 log 모듈을 올린다. `logPrintf()` 출력을 로그 채널(VCOM1)로 내보내면서 RAM 버퍼에도 남겨,
+앞 단계(08 button) 위에 log 모듈을 올린다. 포함 모듈: `led uart cli i2c shtc3 button log`
+ `logPrintf()` 출력을 로그 채널(VCOM1)로 내보내면서 RAM 버퍼에도 남겨,
 연결이 늦었거나 지나간 부팅 메시지를 cli 로 다시 볼 수 있다.
 
 ## 1. 구성

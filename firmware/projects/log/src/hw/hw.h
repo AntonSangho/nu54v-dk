@@ -13,6 +13,8 @@ extern "C" {
 #include "cli.h"
 #include "log.h"
 #include "button.h"
+#include "i2c.h"
+#include "shtc3.h"
 
 
 bool hwInit(void);

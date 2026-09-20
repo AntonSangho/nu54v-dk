@@ -25,6 +25,8 @@ bool hwInit(void)
   logPrintf("\n");
 
   buttonInit();
+  i2cInit();
+  shtc3Init();
 
   logBoot(false);
 

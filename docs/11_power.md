@@ -1,6 +1,7 @@
 # 11. 전원 (`firmware/projects/power`)
 
-module 예제(10) 위에 **reset** 모듈(리셋 원인)과 **power** 모듈(System OFF, 전원 모드)을 올린다.
+앞 단계(10 module) 위에 **reset** 모듈(리셋 원인)과 **power** 모듈(System OFF, 전원 모드)을 올린다.
+포함 모듈: `led uart cli i2c shtc3 button log reset power` + ap 모듈 구조
 소비전류 측정은 뒤로 미루고(§5), 측정 없이 확인할 수 있는 동작을 먼저 검증했다.
 
 ## 1. 기능

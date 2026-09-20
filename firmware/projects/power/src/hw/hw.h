@@ -15,6 +15,8 @@ extern "C" {
 #include "reset.h"
 #include "power.h"
 #include "button.h"
+#include "i2c.h"
+#include "shtc3.h"
 
 
 bool hwInit(void);

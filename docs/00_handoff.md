@@ -40,6 +40,7 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-20 | 08 button ~ 11 power 예제에 빠져 있던 i2c/shtc3 를 넣어 **누적 규칙**을 맞춤 (각 예제 = 앞 단계 + 새 모듈). 네 예제 모두 보드에서 i2c scan / shtc3 read 확인 |
 | 2026-09-20 | `projects/adc` : VBAT(AIN5, ×1.470, 40 µs + 오버샘플링/평균), 칩 온도. 보드 DTS 에 ADC 채널 추가 |
 | 2026-09-20 | `projects/power` : reset/power 모듈. System OFF 가 안 깨어나던 원인 = SWD 디버그 모드 (baram-nrf54-arduino F8) → DISABLE_SWD + 전원 재인가로 GRTC/버튼 깨우기 확인. 전류 측정은 나중에 |
 | 2026-09-20 | GitHub 공개 저장소 https://github.com/chcbaram/nu54v-dk (MIT). `projects/module` : NU87 module + cli_mgr 스레드, `moduleWaitReady`, main 은 잠듦 |

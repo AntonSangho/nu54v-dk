@@ -1,8 +1,7 @@
 # 12. ADC · 칩 온도 (`firmware/projects/adc`)
 
-power 예제(11) 위에 **adc** 모듈(배터리 전압)과 **temp** 모듈(칩 내부 온도)을 올린다.
-여기서 06 i2c / 07 shtc3 모듈도 다시 합쳐, 지금까지 만든 모듈이 모두 들어 있다
-(`led uart cli log button reset power i2c shtc3 adc temp module`).
+앞 단계(11 power) 위에 **adc** 모듈(배터리 전압)과 **temp** 모듈(칩 내부 온도)을 올린다.
+포함 모듈: `led uart cli i2c shtc3 button log reset power adc temp` + ap 모듈 구조
 
 ## 1. 하드웨어
 
@@ -82,5 +81,5 @@ cli# temp show         계속 표시
 - [x] 빌드: FLASH 73 KB / RAM 24.8 KB
 - [x] `adc info` : 배터리 연결 시 3.898 V (±2 mV), 배터리 없을 때 4.04~4.13 V (§4)
 - [x] `temp info` : 33.75 ~ 34.25 ℃ (같은 시각 SHTC3 는 28.3 ℃)
-- [x] i2c / shtc3 합친 뒤에도 전체 동작 (`help` 명령 13개, `i2c scan`, `shtc3 read`, `adc info`, `temp info`)
+- [x] 누적된 모듈 전체 동작 (`help` 명령 13개, `i2c scan`, `shtc3 read`, `adc info`, `temp info`)
 - [ ] 충전 상태와 교차 확인 (13 pmic : 충전 중/완료에 따른 전압 변화)

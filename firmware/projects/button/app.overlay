@@ -1,0 +1,5 @@
+/* Qwiic(J5) I2C : SHTC3, PMIC (보드 기본값은 disabled) */
+
+&i2c21 {
+	status = "okay";
+};

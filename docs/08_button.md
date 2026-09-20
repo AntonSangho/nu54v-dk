@@ -1,6 +1,7 @@
 # 08. 버튼 (`firmware/projects/button`)
 
-uart 예제(05) 위에 button 모듈을 올린다. 보드 스위치 SW1~SW4 의 눌림/뗌, **클릭**, **길게 누름**을 인식한다.
+앞 단계(07 shtc3) 위에 button 모듈을 올린다. 보드 스위치 SW1~SW4 의 눌림/뗌, **클릭**, **길게 누름**을 인식한다.
+포함 모듈: `led uart cli i2c shtc3 button`
 
 ## 1. 하드웨어
 
