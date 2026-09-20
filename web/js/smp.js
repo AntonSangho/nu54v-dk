@@ -219,6 +219,7 @@ class SmpClient {
     this.log = log || (() => {});
     this.seq = 0;
     this.pending = null;
+    this.verbose = false;         // 구간별 속도를 남길까 (평소에는 조용하게)
 
     transport.onPacket = (pkt) => {
       if (this.pending === null) return;
@@ -397,7 +398,7 @@ class SmpClient {
       if (onProgress) onProgress(off, image.length);
 
       const pct = Math.floor((off * 100) / image.length);
-      if (pct >= markPct + 10) {
+      if (this.verbose && pct >= markPct + 10) {
         markPct = pct - (pct % 10);
         const sec = (performance.now() - t0) / 1000;
         this.log(`${markPct}% — ${sec.toFixed(1)} 초, ${(sent / 1024 / sec).toFixed(2)} KB/s, `

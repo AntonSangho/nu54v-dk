@@ -32,6 +32,19 @@ function log(msg, cls) {
  */
 const progressLast = {};
 
+/* [자세히] 가 켜져 있을 때만 남기는 진단 로그.
+ *
+ * 평소에는 조용해야 하지만, 느리거나 재전송이 잦을 때 원인을 가르려면
+ * 구간별 속도와 보드 계수기가 필요하다 (docs/18_dfu.md §9).
+ */
+function isVerbose() {
+  return $("verbose").checked;
+}
+
+function logDebug(text) {
+  if (isVerbose()) log(text);
+}
+
 function setProgress(id, pct, text) {
   const bar = $(`${id}-bar`);
   const label = $(id);
@@ -400,6 +413,7 @@ async function bleUpload() {
     log(`--- ${file.name} (${(image.length / 1024).toFixed(0)} KB) ---`);
 
     const t0 = performance.now();
+    bleClient.verbose = isVerbose();
     const stat = await bleClient.upload(image, (done, total) => {
       const pct = Math.floor((done * 100) / total);
       setProgress("ble-progress", pct,
@@ -554,6 +568,7 @@ async function showBoardCounters() {
         log(`보드 ${cmd} :`);
         lines.forEach((t) => log("   " + t));
       }
+
     } catch (e) {
       log(`보드 ${cmd} 실패 : ${e.message || e}`);
     }
@@ -574,6 +589,7 @@ async function serUpload() {
     log(`--- ${file.name} (${(image.length / 1024).toFixed(0)} KB) ---`);
 
     const t0 = performance.now();
+    serClient.verbose = isVerbose();
     const stat = await serClient.upload(image, (done, total) => {
       const pct = Math.floor((done * 100) / total);
       setProgress("ser-progress", pct,
@@ -586,11 +602,11 @@ async function serUpload() {
 
     // 한 번 돌린 뒤 어디서 잃었는지 보기 위한 집계
     const c = serTransport.stats();
-    log(`시리얼 집계 : 패킷 ${c.packets}, 수신 ${(c.rxBytes / 1024).toFixed(0)} KB, `
+    logDebug(`시리얼 집계 : 패킷 ${c.packets}, 수신 ${(c.rxBytes / 1024).toFixed(0)} KB, `
       + `줄 ${c.rxLines} (시작 ${c.markPkt} / 이어짐 ${c.markFrag}), `
       + `앞줄 잃음 ${c.orphanFrag}, base64 오류 ${c.badB64}, CRC 오류 ${c.crcErr}`);
 
-    await showBoardCounters();
+    if (isVerbose()) await showBoardCounters();
 
     const images = await showSerState();
     const target = images.find((i) => i.slot === 1);
