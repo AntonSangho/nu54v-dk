@@ -84,6 +84,17 @@ static uint32_t frag_drop   = 0;   // 줄은 다 받았는데 패킷이 안 된 
 static uint8_t  drop_buf[DFU_SERIAL_FRAG_MAX];
 static uint16_t drop_len = 0;
 
+// 버릴 때의 수신 문맥. 이 둘이 세 갈래를 가른다.
+//   nb_len < 0  : 들어갈 때 모으던 것이 없었다
+//                 → 할당 실패이거나, 이어짐인데 앞줄을 못 받은 것
+//   nb_len >= 0 : 모으고 있었는데 버렸다 → base64 / 길이 / CRC
+static int32_t  drop_nb_len  = 0;
+static uint16_t drop_pkt_len = 0;
+static uint8_t  drop_prev[2] = {0, };    // 바로 앞 줄의 표식
+static uint16_t drop_prev_len = 0;       // 바로 앞 줄의 길이
+static uint8_t  prev_mark[2] = {0, };
+static uint16_t prev_len = 0;
+
 
 
 
@@ -138,6 +149,19 @@ uint16_t dfuSerialGetDropFrag(uint8_t **pp_buf)
   return drop_len;
 }
 
+void dfuSerialGetDropInfo(int32_t *p_nb_len, uint16_t *p_pkt_len,
+                          uint8_t *p_prev_mark, uint16_t *p_prev_len)
+{
+  if (p_nb_len    != NULL) *p_nb_len    = drop_nb_len;
+  if (p_pkt_len   != NULL) *p_pkt_len   = drop_pkt_len;
+  if (p_prev_len  != NULL) *p_prev_len  = drop_prev_len;
+  if (p_prev_mark != NULL)
+  {
+    p_prev_mark[0] = drop_prev[0];
+    p_prev_mark[1] = drop_prev[1];
+  }
+}
+
 /*
  * cli 가 읽은 바이트를 먼저 보여 준다. SMP 프레임이면 true 를 돌려 cli 가 무시하게 한다.
  *
@@ -190,6 +214,11 @@ bool dfuSerialFeed(uint8_t rx_data)
       struct net_buf *p_nb;
 
       frag_cnt++;
+
+      // 들어가기 전 상태를 적어 둔다 (process_frag 가 지워 버린다)
+      int32_t  nb_len_in  = (rx_ctxt.nb != NULL) ? (int32_t)rx_ctxt.nb->len : -1;
+      uint16_t pkt_len_in = rx_ctxt.pkt_len;
+
       p_nb = mcumgr_serial_process_frag(&rx_ctxt, frag_buf, frag_len);
       if (p_nb != NULL)
       {
@@ -205,7 +234,17 @@ bool dfuSerialFeed(uint8_t rx_data)
 
         drop_len = frag_len;
         memcpy(drop_buf, frag_buf, frag_len);
+
+        drop_nb_len   = nb_len_in;
+        drop_pkt_len  = pkt_len_in;
+        drop_prev[0]  = prev_mark[0];
+        drop_prev[1]  = prev_mark[1];
+        drop_prev_len = prev_len;
       }
+
+      prev_mark[0] = frag_buf[0];
+      prev_mark[1] = frag_buf[1];
+      prev_len     = frag_len;
       frag_len = 0;
       is_frame = false;
       return true;

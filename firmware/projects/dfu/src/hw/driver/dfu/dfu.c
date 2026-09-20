@@ -176,6 +176,17 @@ void cliDfu(cli_args_t *args)
         uint8_t *p_buf;
         uint16_t len = dfuSerialGetDropFrag(&p_buf);
 
+        int32_t  nb_len;
+        uint16_t pkt_len;
+        uint8_t  prev_mark[2];
+        uint16_t prev_len;
+
+        dfuSerialGetDropInfo(&nb_len, &pkt_len, prev_mark, &prev_len);
+        cliPrintf("serial.drop2  : nb_len %d, pkt_len %d, 앞줄 %02X %02X len %d\n",
+                  (int)nb_len, pkt_len, prev_mark[0], prev_mark[1], prev_len);
+        cliPrintf("                %s\n",
+                  nb_len < 0 ? "모으던 것이 없었다 → 할당 실패 또는 앞줄 유실"
+                             : "모으고 있었다 → base64 / 길이 / CRC");
         cliPrintf("serial.drop   : mark %02X %02X, len %d (base64 %d, %s)\n",
                   p_buf[0], p_buf[1], len, len - 2,
                   ((len - 2) % 4) == 0 ? "4의 배수" : "4의 배수 아님");

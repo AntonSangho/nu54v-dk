@@ -230,9 +230,11 @@ class SerialSmpTransport {
     this.onText = (t) => out.push(t);
 
     try {
+      // cli 의 엔터는 CR(0x0D) 이다 (cli.c 의 CLI_KEY_ENTER).
+      // SMP 프레임이 쓰는 LF 와 다르다. LF 로 보내면 명령이 실행되지 않는다.
       const bytes = new Uint8Array(line.length + 1);
       for (let i = 0; i < line.length; i++) bytes[i] = line.charCodeAt(i);
-      bytes[line.length] = 0x0a;
+      bytes[line.length] = 0x0d;
       await this.writer.write(bytes);
       await new Promise((r) => setTimeout(r, waitMs));
     } finally {

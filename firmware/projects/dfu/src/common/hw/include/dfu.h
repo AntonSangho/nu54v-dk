@@ -41,6 +41,8 @@ bool dfuSerialIsEnable(void);
 void dfuSerialGetCnt(uint32_t *p_rx, uint32_t *p_tx, uint32_t *p_err);
 void dfuSerialGetFragCnt(uint32_t *p_frag, uint32_t *p_drop);
 uint16_t dfuSerialGetDropFrag(uint8_t **pp_buf);
+void dfuSerialGetDropInfo(int32_t *p_nb_len, uint16_t *p_pkt_len,
+                          uint8_t *p_prev_mark, uint16_t *p_prev_len);
 #endif
 
 
