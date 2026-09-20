@@ -17,6 +17,7 @@
     | `an54l-oled`, `an54l-fw` | i2c, spi, spi_flash, lcd(+hangul, resize) → epaper (20) |
     | `nrf54l-fw-fota` | **BLE NUS (`CONFIG_BT_NUS`, ble_uart 모듈) + MCUboot + MCUmgr BT OTA DFU** → ble_nus, dfu |
     | `xiao-nrf54l-fw` | 최소 구성 (led, log, uart, cli) |
+  - [qmk-zephyr](https://github.com/chcbaram/qmk-zephyr) `firmware/nrf52-qmk-fw` : Zephyr 기반 QMK. Settings/NVS, emu-eeprom RAM 미러 + settle-flush, BLE 프로파일 저장, USB HID. `docs/PORTING-NOTES.md` 에 실기 함정 정리
   - [baram-nrf54-arduino](https://github.com/chcbaram/baram-nrf54-arduino) : **같은 보드(NU54V-DK)** 의 Arduino 코어. `docs/boards/NU54V-DK.md`(실측한 솔더 브리지·핀·PMIC·J1), `CLAUDE.md` §7 (F8 디버거와 System OFF, F9 WFI/BASEPRI 등 실기에서 잡은 함정)
 - 모든 단계에서 저전력 항목을 확인한다. 전류는 J1(VDD_MOD)에서 PPK2 로 잰다.
 
@@ -34,7 +35,7 @@
 | 11 | `power` | reset(리셋 원인) + power(System OFF, 버튼/GRTC 깨우기, 레귤레이터 모드). **전류 측정은 나중에** | SW, GRTC, J1 | reset (NU87), System OFF (Zephyr 샘플, baram-nrf54-arduino) | SWD 분리 + 전원 재인가 후 시험 (11_power §4) | ✅ (측정 예정) |
 | 12 | `adc` | 배터리 전압(VBAT_MON, 분압 ×1.470) + 칩 온도, `adc`/`temp` CLI | P1.12(AIN5), TEMP | adc (nrf54l15-bd) | 읽을 때만 SAADC 동작, 분압 누설 2.8 µA | ✅ |
 | 13 | `pmic` | BQ25186 충전기: 상태·이상·설정 읽기, 충전 전류 설정, /CE 제어, `/INT` 이벤트 | I2C 0x6A, P1.11 INT, P2.08 PG, P2.10 CE | (신규, Arduino pmic 예제 참고) | 폴링 없이 /INT 인터럽트 | ✅ |
-| 14 | `nvs` | 설정 저장 (storage 파티션), eeprom 에뮬레이션 | RRAM `storage_partition` | nvs, eeprom, flash | 쓰기 횟수·타이밍 | |
+| 14 | `nvs` | 설정 저장 (Zephyr Settings + ZMS, storage 파티션), `nvs` CLI | RRAM `storage_partition` | nvs (NU87 API), qmk-zephyr (쓰기 합치기) | 값이 바뀔 때만 쓰기, 잦으면 모아서 | ✅ |
 | 15 | `rtc` | **날짜·시계**: 연월일 시분초, epoch(UTC), 시간대, `rtc` CLI(`rtc info / set date / set time / tz`), 주기 깨우기, 워치독, **log 타임스탬프** (§5) | GRTC(LFXO), WDT31, 보존 RAM | rtc (NU87 API), reset | GRTC 는 System OFF 에서도 동작, 1초 틱 없이 조회 시 계산 | |
 | 16 | `ble_nus` | **BLE NUS 를 uart 가상 채널로 추가 → baram-term 과 통신** | RADIO | uart(`uartSetDriver`), cli | 광고/연결 간격, TX 전력 | |
 | 17 | `ble_power` | BLE 저전력 튜닝: 광고 주기, 연결 파라미터, 슬레이브 레이턴시 | RADIO | | 광고/연결 상태별 평균 전류 표 | |
