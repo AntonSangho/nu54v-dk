@@ -19,6 +19,19 @@
 const SERIAL_MARK_PKT = [0x06, 0x09];
 const SERIAL_MARK_FRAG = [0x04, 0x14];
 
+const SERIAL_BAUD = 115200;
+
+// 프로브에 한 번에 얼마나 쌓아 둘 것인가 (0 이면 페이싱 안 함).
+//
+// 호스트는 USB(12 Mbps)로 한 순간에 넘기는데 프로브는 그것을 115200 으로
+// 흘려보낸다. 그 차이만큼 프로브 버퍼에 쌓이고, 흐름제어가 없어 넘치면
+// **조용히 버리거나 덮어쓴다**. 보드는 오버런도 큐 넘침도 보고하지 않는다
+// (보드에 닿기 전에 사라진 것이다).
+//
+// 실측 : 페이싱 없이 13,235 조각에 2 회 손상, 페이싱으로 14,060 조각에 0 회.
+// 전선이 어차피 병목이라 속도 손해는 없다 (5.51 → 5.55 KB/s).
+const SERIAL_PACE_AHEAD = 256;
+
 const PKT_MARK_STR = String.fromCharCode(...SERIAL_MARK_PKT);
 const FRAG_MARK_STR = String.fromCharCode(...SERIAL_MARK_FRAG);
 
@@ -69,6 +82,8 @@ class SerialSmpTransport {
     this.onPacket = null;
     this.onText = null;       // SMP 가 아닌 줄 (보드 cli 출력)
 
+    this.drainAt = 0;         // 지금까지 쓴 것이 전선으로 다 빠져나갈 시각 (ms)
+
     this.line = "";           // 받는 중인 한 줄
     this.b64 = "";            // 이어 붙이는 중인 base64 문자열
     this.bodyLen = -1;        // 아직 모름
@@ -112,7 +127,7 @@ class SerialSmpTransport {
     // Chrome 의 기본값은 255 바이트고, 넘치면 **받은 데이터를 버린다**.
     // 업로드 중에는 응답이 쉴 새 없이 오는데 그 사이 화면 갱신 등으로 잠깐만 늦어도
     // 응답이 통째로 사라진다 (브라우저에서만 "응답이 오지 않는다" 가 났던 이유).
-    await this.port.open({ baudRate: 115200, bufferSize: 16384 });
+    await this.port.open({ baudRate: SERIAL_BAUD, bufferSize: 16384 });
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
     this.readLoop();
@@ -288,15 +303,50 @@ class SerialSmpTransport {
 
     const b64 = toBase64(raw);
 
+    // 줄을 모두 만든 뒤 한 덩어리로 넘긴다. 나누는 단위는 전선 속도가 정한다.
+    const lines = Math.ceil(b64.length / SERIAL_LINE_MAX);
+    const out = new Uint8Array(b64.length + lines * 3);
+    let at = 0;
+
     for (let i = 0; i < b64.length; i += SERIAL_LINE_MAX) {
       const part = b64.slice(i, i + SERIAL_LINE_MAX);
       const mark = (i === 0) ? SERIAL_MARK_PKT : SERIAL_MARK_FRAG;
-      const line = new Uint8Array(2 + part.length + 1);
-      line[0] = mark[0];
-      line[1] = mark[1];
-      for (let k = 0; k < part.length; k++) line[2 + k] = part.charCodeAt(k);
-      line[line.length - 1] = 0x0a;
-      await this.writer.write(line);
+      out[at++] = mark[0];
+      out[at++] = mark[1];
+      for (let k = 0; k < part.length; k++) out[at++] = part.charCodeAt(k);
+      out[at++] = 0x0a;
+    }
+
+    await this.writePaced(out.subarray(0, at));
+  }
+
+  /*
+   * 전선이 비워내는 속도에 맞춰 나눠 쓴다.
+   *
+   * writer.write() 는 스트림이 받아들이면 바로 끝나므로, 그대로 쓰면 한 요청이
+   * 통째로 프로브 버퍼에 몰린다. drainAt 으로 "지금까지 쓴 것이 다 나갈 시각" 을
+   * 따라가며 SERIAL_PACE_AHEAD 바이트 이상 앞서지 않게 한다.
+   */
+  async writePaced(bytes) {
+    if (SERIAL_PACE_AHEAD <= 0) {
+      await this.writer.write(bytes);
+      return;
+    }
+
+    const msPerByte = 10000 / SERIAL_BAUD;          // 8N1 이라 한 바이트가 10 비트
+    const budget = SERIAL_PACE_AHEAD * msPerByte;
+
+    for (let i = 0; i < bytes.length; i += SERIAL_PACE_AHEAD) {
+      const part = bytes.subarray(i, i + SERIAL_PACE_AHEAD);
+      const now = performance.now();
+
+      if (this.drainAt < now) this.drainAt = now;   // 전선이 이미 비었다
+      if (this.drainAt - now > budget) {
+        await new Promise((r) => setTimeout(r, this.drainAt - now - budget));
+      }
+
+      await this.writer.write(part);
+      this.drainAt = Math.max(this.drainAt, performance.now()) + part.length * msPerByte;
     }
   }
 }
