@@ -396,13 +396,15 @@ async function bleUpload() {
     log(`--- ${file.name} (${(image.length / 1024).toFixed(0)} KB) ---`);
 
     const t0 = performance.now();
-    await bleClient.upload(image, (done, total) => {
+    const stat = await bleClient.upload(image, (done, total) => {
       const pct = Math.floor((done * 100) / total);
       setProgress("ble-progress", pct,
         `업로드 ${pct}%  (${(done / 1024).toFixed(0)} / ${(total / 1024).toFixed(0)} KB)`);
     });
     const sec = (performance.now() - t0) / 1000;
-    log(`업로드 완료 : ${sec.toFixed(1)} 초 (${(image.length / 1024 / sec).toFixed(1)} KB/s)`, "ok");
+    // 이어받았으면 이미지 크기가 아니라 **실제로 보낸 만큼**으로 속도를 낸다
+    log(`업로드 완료 : ${sec.toFixed(1)} 초, ${(stat.sent / 1024).toFixed(0)} KB 전송 `
+      + `(${(stat.sent / 1024 / sec).toFixed(1)} KB/s)`, "ok");
 
     const images = await showBleState();
     const target = images.find((i) => i.slot === 1);
@@ -510,13 +512,15 @@ async function serUpload() {
     log(`--- ${file.name} (${(image.length / 1024).toFixed(0)} KB) ---`);
 
     const t0 = performance.now();
-    await serClient.upload(image, (done, total) => {
+    const stat = await serClient.upload(image, (done, total) => {
       const pct = Math.floor((done * 100) / total);
       setProgress("ser-progress", pct,
         `업로드 ${pct}%  (${(done / 1024).toFixed(0)} / ${(total / 1024).toFixed(0)} KB)`);
     });
     const sec = (performance.now() - t0) / 1000;
-    log(`업로드 완료 : ${sec.toFixed(1)} 초 (${(image.length / 1024 / sec).toFixed(1)} KB/s)`, "ok");
+    // 이어받았으면 이미지 크기가 아니라 **실제로 보낸 만큼**으로 속도를 낸다
+    log(`업로드 완료 : ${sec.toFixed(1)} 초, ${(stat.sent / 1024).toFixed(0)} KB 전송 `
+      + `(${(stat.sent / 1024 / sec).toFixed(1)} KB/s)`, "ok");
 
     const images = await showSerState();
     const target = images.find((i) => i.slot === 1);

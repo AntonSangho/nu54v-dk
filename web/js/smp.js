@@ -264,10 +264,16 @@ class SmpClient {
    *
    * 첫 요청에만 len 과 sha 를 같이 보낸다 (보드가 전체 크기를 알아야 한다).
    * 보드는 응답으로 다음에 보낼 위치(off)를 알려 준다.
+   *
+   * 앞서 같은 이미지를 올리다 끊겼으면 보드가 **이어받을 위치를 돌려준다**.
+   * 그러면 처음부터 보내지 않으므로, 실제로 보낸 바이트를 따로 세어 돌려준다
+   * (이미지 크기로 속도를 내면 이어받은 만큼 빨라 보인다).
    */
   async upload(image, onProgress, chunkSize = 200, retries = 5) {
     const sha = new Uint8Array(await crypto.subtle.digest("SHA-256", image));
     let off = 0;
+    let sent = 0;
+    let resumedAt = 0;
 
     while (off < image.length) {
       const end = Math.min(off + chunkSize, image.length);
@@ -297,8 +303,16 @@ class SmpClient {
       }
 
       if (typeof rsp.off !== "number") throw new Error("응답에 off 가 없다");
+
+      sent += end - off;
+      if (off === 0 && rsp.off > end) {
+        resumedAt = rsp.off;                 // 보드가 이어받을 위치를 알려 줬다
+        this.log(`보드에 이미 ${resumedAt} 바이트가 있다. 이어서 보낸다`);
+      }
       off = rsp.off;
       if (onProgress) onProgress(off, image.length);
     }
+
+    return { sent, resumedAt };
   }
 }
