@@ -35,6 +35,10 @@ jobs:
 
       - uses: actions/configure-pages@v5
 
+      # js 태그의 ?v= 를 갱신한다. 안 하면 브라우저가 예전 js 를 계속 쓴다.
+      - name: 캐시 버스터 갱신
+        run: python3 web/bump_version.py
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web
