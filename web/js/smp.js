@@ -330,11 +330,15 @@ class SmpClient {
    * (이미지 크기로 속도를 내면 이어받은 만큼 빨라 보인다).
    */
   /*
-   * chunkSize 512 는 실측으로 고른 값이다 (200 → 512 로 5.0 → 6.0 KB/s).
-   * 더 키우면 한 번에 쓰는 양이 프로브의 USB→UART 버퍼를 넘는데, 흐름제어가
-   * 없어 조용히 버려진다. 속도에 맞춰 나눠 쓰면 이번엔 전선을 못 채워 느려진다.
+   * 조각 크기는 **전송 계층이 정한다** (transport.chunkSize).
+   *
+   * 시리얼과 BLE 의 한계가 전혀 다르다. 시리얼은 패킷을 여러 줄로 쪼개 보내
+   * 512 까지 되지만, BLE 는 한 번의 write 에 패킷이 통째로 들어가야 해서
+   * MTU 에 묶인다. 여기서 하나로 정하면 한쪽이 깨진다.
    */
-  async upload(image, onProgress, chunkSize = 512, retries = 5) {
+  async upload(image, onProgress, chunkSize = null, retries = 5) {
+    if (chunkSize === null) chunkSize = this.transport.chunkSize || 200;
+
     this.abort();                          // 앞서 멈춘 것이 남아 있으면 버린다
 
     const sha = new Uint8Array(await crypto.subtle.digest("SHA-256", image));

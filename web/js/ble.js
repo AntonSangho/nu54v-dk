@@ -9,6 +9,10 @@
  * 받는 쪽은 notify 가 여러 번 나뉘어 오므로 헤더의 길이를 보고 다 모일 때까지 기다린다.
  */
 
+// 한 번의 writeValueWithoutResponse 로 보낼 수 있는 최대 (브라우저 제한).
+// 실제로는 협상된 MTU 에 더 묶인다.
+const BLE_WRITE_MAX = 512;
+
 const SMP_SERVICE_UUID = "8d53dc1d-1db7-4cd3-868b-8a527460aa84";
 const SMP_CHAR_UUID = "da2e7828-fbce-4e01-ae9e-261174997c48";
 
@@ -20,6 +24,14 @@ class BleSmpTransport {
     this.characteristic = null;
     this.onPacket = null;
     this.rx = new Uint8Array(0);
+
+    // 한 번에 올릴 조각 크기. **시리얼보다 훨씬 작아야 한다.**
+    //
+    // 보내는 쪽은 한 번의 write 에 SMP 패킷 하나가 통째로 들어가야 하는데,
+    // 협상된 MTU 가 244 라 패킷이 241 바이트를 넘으면 브라우저가 거절한다
+    //   Failed to execute 'writeValueWithoutResponse' ... can't exceed 512 bytes
+    // 패킷 = 8(헤더) + CBOR 덮개 약 30 + 조각 이므로 200 이 상한에 가깝다.
+    this.chunkSize = 200;
   }
 
   get isConnected() {
@@ -81,6 +93,15 @@ class BleSmpTransport {
 
   async send(packet) {
     if (!this.characteristic) throw new Error("BLE 가 연결되어 있지 않다");
+
+    // 넘치면 브라우저가 "Value can't exceed 512 bytes" 로 거절하는데,
+    // 그 문구만으로는 조각 크기가 원인이라는 것을 알기 어렵다. 먼저 짚어 준다.
+    if (packet.length > BLE_WRITE_MAX) {
+      throw new Error(`BLE 패킷이 ${packet.length} 바이트다. `
+        + `한 번의 write 에 들어가야 하므로 chunkSize 를 줄여야 한다 `
+        + `(지금 ${this.chunkSize})`);
+    }
+
     await this.characteristic.writeValueWithoutResponse(packet);
   }
 }

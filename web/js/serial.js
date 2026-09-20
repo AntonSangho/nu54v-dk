@@ -93,6 +93,13 @@ class SerialSmpTransport {
     this.onPacket = null;
     this.onText = null;       // SMP 가 아닌 줄 (보드 cli 출력)
 
+    // 한 번에 올릴 조각 크기. 전송 계층마다 한계가 달라 여기서 정한다.
+    //
+    // 시리얼은 패킷을 여러 줄로 쪼개 보내므로 패킷 크기 상한이 넉넉하다
+    // (보드의 net_buf 1230 바이트). 512 는 실측으로 고른 값이다 — 더 키우면
+    // 한 번에 쓰는 양이 프로브 버퍼를 넘어 조용히 잃는다 (docs/18_dfu.md §9).
+    this.chunkSize = 512;
+
     this.drainAt = 0;         // 지금까지 쓴 것이 전선으로 다 빠져나갈 시각 (ms)
 
     this.line = "";           // 받는 중인 한 줄
