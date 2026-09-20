@@ -13,7 +13,8 @@ NUCODE NU54-DK (nRF54L15) 보드 브링업 펌웨어.
 | 툴체인 | NCS v3.4.1 툴체인 (Zephyr SDK 1.0.1, GCC 14.3) |
 | 디버거 | 온보드 CMSIS-DAP (`NU54DK_v2`) + pyOCD 0.42, VS Code Cortex-Debug |
 | 빌드 호스트 | macOS · Linux · Windows (`firmware/scripts/fw`, VS Code 태스크) |
-| 시리얼 | VCOM1 = cli / 로그, VCOM0 = 두 번째 채널 (115200 8N1) |
+| 시리얼 | VCOM1 = cli / 로그 / 시리얼 DFU, VCOM0 = 두 번째 채널 (115200 8N1) |
+| 펌웨어 업데이트 | MCUboot + SMP — BLE 또는 cli 포트 (`fw dfu`, VS Code 태스크) |
 
 ## 사용 도구
 
@@ -36,7 +37,9 @@ NUCODE NU54-DK (nRF54L15) 보드 브링업 펌웨어.
 | `hardware/` | 회로도 |
 | `firmware/boards/` | Zephyr 보드 패키지 |
 | `firmware/projects/` | 예제 프로젝트 (각 폴더를 VS Code 로 연다) |
-| `firmware/scripts/` | 빌드·다운로드·디버그 스크립트 |
+| `firmware/scripts/` | 빌드·다운로드·디버그·업데이트 스크립트 |
+| `firmware/keys/` | MCUboot 서명 키 (**개발용**. 양산에서는 교체한다) |
+| `web/` | 브라우저에서 굽는 페이지 (WebUSB / Web Bluetooth / Web Serial) |
 | `docs/` | 설명 문서 — [00_handoff.md](docs/00_handoff.md) 부터 |
 
 ## 예제
@@ -56,6 +59,7 @@ NUCODE NU54-DK (nRF54L15) 보드 브링업 펌웨어.
 | 14 | `nvs` | 설정 저장 (Settings + ZMS) |
 | 15 | `rtc` | 날짜·시계, 로그 타임스탬프 |
 | 16 | `ble_nus` | BLE NUS — cli 를 BLE 로 |
+| 18 | `dfu` | MCUboot 펌웨어 업데이트 (BLE / 시리얼) — [문서](docs/18_dfu.md) |
 
 앞으로의 계획: [docs/roadmap.md](docs/roadmap.md)
 
@@ -69,3 +73,25 @@ cd firmware/projects/uart
 
 VS Code 로 프로젝트 폴더를 열고 `Ctrl/Cmd+Shift+B` 빌드, `F5` 디버그.
 자세한 내용은 [docs/03_build_debug_env.md](docs/03_build_debug_env.md).
+
+### 펌웨어 업데이트 (MCUboot 를 쓰는 프로젝트)
+
+```sh
+cd firmware/projects/dfu
+../../scripts/fw dfu                    # 시리얼 (cli 포트, 자동 탐색)
+../../scripts/fw dfu --transport ble    # BLE
+```
+
+업로드 → test → 리셋 → confirm 까지 한 번에 한다. VS Code 태스크로도 같다.
+
+| | 굽는 것 | 경로 |
+|---|---|---|
+| `fw flash` | MCUboot + 앱 | SWD (프로브) |
+| `fw dfu` | 앱만 | SMP (시리얼 / BLE) |
+
+**버전을 올려야 한다** (`VERSION` 파일). 같은 버전이면 타깃이 거부한다.
+그 포트를 쓰는 프로그램(baram-term 등)은 먼저 닫는다. 자세한 내용은 [docs/18_dfu.md](docs/18_dfu.md).
+
+> **알려진 문제** — 이 보드의 온보드 프로브는 **VCOM0 를 쓰면 SWD 가 죽는다**.
+> 그래서 시리얼 DFU 는 VCOM0 가 아니라 cli 포트(VCOM1)에 얹었다.
+> 원인 분석과 재현 조건: [docs/reports/2026-09-20_daplink_vcom0_swd.md](docs/reports/2026-09-20_daplink_vcom0_swd.md)
