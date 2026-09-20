@@ -100,6 +100,10 @@ class SerialSmpTransport {
     // 한 번에 쓰는 양이 프로브 버퍼를 넘어 조용히 잃는다 (docs/18_dfu.md §9).
     this.chunkSize = 512;
 
+    // 패킷 하나의 상한. 시리얼은 줄로 쪼개 보내므로 한 번의 write 크기가 아니라
+    // 보드가 모을 수 있는 크기(net_buf 1230)가 상한이다.
+    this.maxPacket = 1222;
+
     this.drainAt = 0;         // 지금까지 쓴 것이 전선으로 다 빠져나갈 시각 (ms)
 
     this.line = "";           // 받는 중인 한 줄
