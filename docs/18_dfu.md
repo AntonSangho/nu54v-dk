@@ -301,6 +301,17 @@ uart(VCOM1) → cliMain() → dfuSerialRxByte()
 - 프레이밍은 표준이라 `mcumgr` / `smpclient` 가 그대로 붙는다. **포트 하나로 cli 와 DFU 가 공존한다.**
 - 프레임 표식(`0x06`/`0x04`)이 아닌 바이트는 cli 로 넘어간다. 표식 뒤가 어긋나면 그 바이트는 버린다
   (cli 입력으로 쓰는 문자가 아니다).
+- **cli 는 dfu 를 알지 못한다.** cli 가 수신 필터 자리만 내주고, dfu 가 자기를 등록한다
+  (`uartSetDriver()` 와 같은 방식).
+
+  ```c
+  // cli.h — 필터 자리만 있다
+  typedef bool (*cli_rx_filter_t)(uint8_t ch, uint8_t rx_data);
+  bool cliSetRxFilter(cli_rx_filter_t filter);
+
+  // dfu_serial.c — 자기를 등록한다
+  cliSetRxFilter(dfuSerialRxByte);
+  ```
 - `dfu serial off` 로 가로채기를 끌 수 있다.
 - 프레이밍 헬퍼(`serial_util.c`)는 숨은 심볼로 빌드되므로 프로젝트 `Kconfig` 에서 select 한다
   (`CONFIG_NU54_DFU_SMP_UART`).

@@ -9,9 +9,6 @@
 
 
 #include "cli.h"
-#ifdef _USE_HW_DFU_SERIAL
-#include "dfu.h"
-#endif
 #include "uart.h"
 
 
@@ -92,6 +89,7 @@ typedef struct
 
 
 cli_t   cli_node;
+static cli_rx_filter_t rx_filter = NULL;
 
 
 
@@ -223,6 +221,12 @@ void cliShowPrompt(cli_t *p_cli)
   uartPrintf(p_cli->ch, CLI_PROMPT_STR);
 }
 
+bool cliSetRxFilter(cli_rx_filter_t filter)
+{
+  rx_filter = filter;
+  return true;
+}
+
 bool cliMain(void)
 {
   if (cli_node.is_open != true)
@@ -234,14 +238,11 @@ bool cliMain(void)
   {
     uint8_t rx_data = uartRead(cli_node.ch);
 
-#ifdef _USE_HW_DFU_SERIAL
-    // SMP(시리얼 DFU) 프레임이면 그쪽이 가져간다 (0x06 0x09 로 시작한다).
-    // 같은 포트에서 cli 와 DFU 가 공존한다 — BLE 의 NUS + SMP 와 같은 방식.
-    if (dfuSerialRxByte(cli_node.ch, rx_data) == true)
+    // 등록된 필터가 먼저 본다 (시리얼 DFU 등). 가져갔으면 cli 는 건너뛴다.
+    if (rx_filter != NULL && rx_filter(cli_node.ch, rx_data) == true)
     {
       return true;
     }
-#endif
 
     cliUpdate(&cli_node, rx_data);
   }

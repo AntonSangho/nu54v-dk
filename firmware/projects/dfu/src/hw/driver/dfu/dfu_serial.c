@@ -27,6 +27,7 @@
 
 #ifdef _USE_HW_DFU_SERIAL
 #include "uart.h"
+#include "cli.h"
 #include <zephyr/net_buf.h>
 #include <zephyr/mgmt/mcumgr/mgmt/mgmt.h>
 #include <zephyr/mgmt/mcumgr/smp/smp.h>
@@ -80,7 +81,13 @@ bool dfuSerialInit(void)
   transport.functions.output = dfuSerialTxPkt;
   transport.functions.get_mtu = dfuSerialGetMtu;
 
-  return smp_transport_init(&transport) == 0;
+  if (smp_transport_init(&transport) != 0)
+  {
+    return false;
+  }
+
+  // cli 수신 바이트를 먼저 보도록 자기를 등록한다 (cli 는 dfu 를 알지 못한다).
+  return cliSetRxFilter(dfuSerialRxByte);
 }
 
 void dfuSerialEnable(bool enable)
