@@ -15,7 +15,7 @@ HTML = pathlib.Path(__file__).with_name("index.html")
 
 
 def main():
-    ver = time.strftime("%Y%m%d%H%M")
+    ver = time.strftime("%Y%m%d%H%M%S")   # 같은 분에 두 번 고쳐도 바뀌게 초까지
     text = HTML.read_text(encoding="utf-8")
 
     new, n = re.subn(r'(<script src="js/[a-z0-9_]+\.js)(\?v=\d+)?(">)',
