@@ -52,6 +52,7 @@ NUCODE NU54-DK (nRF54L15) 보드 브링업 펌웨어.
 | 10 | `module` | ap 모듈 구조, 모듈별 스레드 (cli_mgr) |
 | 11 | `power` | 리셋 원인, System OFF (버튼/GRTC 깨우기) |
 | 12 | `adc` | 배터리 전압, 칩 온도 |
+| 13 | `pmic` | 배터리 충전기 BQ25186 |
 
 앞으로의 계획: [docs/roadmap.md](docs/roadmap.md)
 

@@ -33,7 +33,7 @@
 | 10 | `module` | **ap 모듈 구조**: `MODULE_DEF` 로 모듈 등록, 모듈별 스레드, cli_mgr(cli 스레드, 입력 대기 sleep), `module info/thread` (§4) | | module (NU87), ldscript (nu54dk) | 모든 스레드가 이벤트로만 깨어남, main 은 잠듦 | ✅ |
 | 11 | `power` | reset(리셋 원인) + power(System OFF, 버튼/GRTC 깨우기, 레귤레이터 모드). **전류 측정은 나중에** | SW, GRTC, J1 | reset (NU87), System OFF (Zephyr 샘플, baram-nrf54-arduino) | SWD 분리 + 전원 재인가 후 시험 (11_power §4) | ✅ (측정 예정) |
 | 12 | `adc` | 배터리 전압(VBAT_MON, 분압 ×1.470) + 칩 온도, `adc`/`temp` CLI | P1.12(AIN5), TEMP | adc (nrf54l15-bd) | 읽을 때만 SAADC 동작, 분압 누설 2.8 µA | ✅ |
-| 13 | `pmic` | BQ25186 충전기: 상태/인터럽트/충전 제어 | I2C 0x6A, P1.11 INT, P2.08 PG, P2.10 CE | (신규, i2c 사용) | INT 인터럽트로 상태 변화 감지 | |
+| 13 | `pmic` | BQ25186 충전기: 상태·이상·설정 읽기, 충전 전류 설정, /CE 제어, `/INT` 이벤트 | I2C 0x6A, P1.11 INT, P2.08 PG, P2.10 CE | (신규, Arduino pmic 예제 참고) | 폴링 없이 /INT 인터럽트 | ✅ |
 | 14 | `nvs` | 설정 저장 (storage 파티션), eeprom 에뮬레이션 | RRAM `storage_partition` | nvs, eeprom, flash | 쓰기 횟수·타이밍 | |
 | 15 | `rtc` | **날짜·시계**: 연월일 시분초, epoch(UTC), 시간대, `rtc` CLI(`rtc info / set date / set time / tz`), 주기 깨우기, 워치독, **log 타임스탬프** (§5) | GRTC(LFXO), WDT31, 보존 RAM | rtc (NU87 API), reset | GRTC 는 System OFF 에서도 동작, 1초 틱 없이 조회 시 계산 | |
 | 16 | `ble_nus` | **BLE NUS 를 uart 가상 채널로 추가 → baram-term 과 통신** | RADIO | uart(`uartSetDriver`), cli | 광고/연결 간격, TX 전력 | |

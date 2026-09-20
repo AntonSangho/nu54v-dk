@@ -87,5 +87,5 @@ DTS 결정 사항:
 - [ ] HFXO 내부 부하 용량 값 (모듈 데이터시트)
 - [x] 솔더 브리지 (baram-nrf54-arduino 실측): SB1~SB4(PMIC INT/PG/CE, VBAT_MON), SB9~SB12(VCOM1), SB5~SB8(VCOM0), SB14/SB15(Qwiic) 연결, SB20/SB21 미실장. 나머지는 미확인
 - [x] VBAT_MON : ADC 채널로 정의 (12_adc)
-- [ ] PMIC(BQ25186) 노드 정의 (13 pmic)
+- [x] PMIC(BQ25186) : I2C 0x6A + `zephyr,user` 의 `pmic-int/pg/ce-gpios` (13_pmic)
 - [x] P1.02/P1.03 NFC 핀 겸용 → `board.c` 에서 `NFCT.PADCONFIG` 끔 (리셋값이 NFC 활성). I2C 동작 확인 (05)

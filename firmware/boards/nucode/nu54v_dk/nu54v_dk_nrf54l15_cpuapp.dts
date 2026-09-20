@@ -87,6 +87,16 @@
 	zephyr,user {
 		io-channels = <&adc 5>;
 		io-channel-names = "vbat";
+
+		/*
+		 * PMIC (BQ25186) 신호. 모두 솔더 브리지로 연결되어 있다.
+		 *   INT : /INT  open drain, 10K 풀업 (SB1)
+		 *   PG  : /PG   입력 전원 있음 (SB2)
+		 *   CE  : /CE   충전 허용. R10 10K 풀다운 → 띄워 두면 충전 허용 (SB3)
+		 */
+		pmic-int-gpios = <&gpio1 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		pmic-pg-gpios  = <&gpio2 8 GPIO_ACTIVE_LOW>;
+		pmic-ce-gpios  = <&gpio2 10 GPIO_ACTIVE_LOW>;
 	};
 
 	aliases {
