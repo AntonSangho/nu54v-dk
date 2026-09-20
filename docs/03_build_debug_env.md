@@ -145,13 +145,23 @@ cat /Volumes/NU54V2PRE/DETAILS.TXT   # Target Detect / Target Voltage / Board ID
 
 ### 확인된 두 가지 문제 (프로브 펌웨어 쪽)
 
+원인 분리까지 끝났다. 제조사 보고서: [reports/2026-09-20_daplink_vcom0_swd.md](reports/2026-09-20_daplink_vcom0_swd.md)
+
 1. **MSD 드라이브에 `.hex` 를 복사하면 즉시 HardFault.** 두 번 재현. 이 경로는 쓰지 않는다.
-2. **`dfu`(SMP 포함) 펌웨어가 돌면 CMSIS-DAP 의 SWD 가 죽는다.**
-   굽는 것까지는 성공하고, 그 펌웨어가 **부팅한 뒤** 접근이 끊긴다 (`Error reading AP#2 IDR: No ACK`).
-   시리얼로 데이터를 보내기 전에 이미 끊기므로 전송과는 무관하다.
-   **타깃 쪽 문제가 아니다** — 같은 상태에서 외부 프로브(NU-DAP)는 정상으로 읽고 굽는다.
-   `led` 와 `dfu` 1단계(SMP 없음)에서는 내장 프로브가 정상이다.
-   → SMP 가 켜지면서 들어온 것(uart30/VCOM0 상시 활성화, IMG_MANAGER 등) 중 무엇이 방아쇠인지는 아직 미분리.
+2. **VCOM0(`uart30`)를 쓰면 같은 프로브의 CMSIS-DAP SWD 가 죽는다.** SMP 와는 무관하다.
+
+| 조건 | SWD |
+|---|---|
+| uart30 미사용 (led, BLE 전용 dfu) | ✅ |
+| uart30 활성, TX/RX 만, 통신 없음 | ✅ |
+| 보드 → 호스트 512 B 송신 | ✅ |
+| **호스트 → 보드 64 B 송신** | ❌ No ACK |
+| **RTS(P0.02)를 Low 로 구동** (통신 없어도) | ❌ No ACK |
+
+→ 프로브의 **VCOM0 송신 경로와 RTS 입력 처리**가 SWD 서비스와 충돌한다.
+타깃 문제가 아니다 (외부 프로브는 같은 상태에서 정상). CDC 자체는 SWD 가 죽은 뒤에도 계속 동작한다.
+
+**한 번 VCOM0 를 쓰는 펌웨어가 올라가면 내장 프로브로는 되돌릴 수 없다.** 외부 프로브가 필요하다.
 
 ### 프로브가 여러 대일 때
 

@@ -447,6 +447,30 @@ void cliUart(cli_args_t *args)
   }
 
   /* 수신 바이트를 16진으로 계속 찍는다. q 로 빠져나온다. */
+  // 수신 없이 송신만 확인한다 (상대 포트가 받는지, 송신 경로가 사는지)
+  if (args->argc == 3 && args->isStr(0, "send"))
+  {
+    uint8_t  ch  = constrain(args->getData(1), 1, UART_MAX_CH) - 1;
+    uint32_t len = args->getData(2);
+    uint8_t  buf[64];
+
+    for (int i = 0; i < 64; i++)
+    {
+      buf[i] = '0' + (i % 10);
+    }
+
+    uint32_t sent = 0;
+    while (sent < len)
+    {
+      uint32_t size = MIN(sizeof(buf), len - sent);
+
+      if (uartWrite(ch, buf, size) != size) break;
+      sent += size;
+    }
+    cliPrintf("uart send ch%d : %d/%d bytes\n", ch + 1, sent, len);
+    ret = true;
+  }
+
   if (args->argc == 2 && args->isStr(0, "test"))
   {
     uint8_t ch = constrain(args->getData(1), 1, UART_MAX_CH) - 1;
@@ -503,6 +527,7 @@ void cliUart(cli_args_t *args)
   {
     cliPrintf("uart info\n");
     cliPrintf("uart test  ch[1~%d]\n", UART_MAX_CH);
+    cliPrintf("uart send  ch[1~%d] length\n", UART_MAX_CH);
     cliPrintf("uart open  ch[1~%d] baud\n", UART_MAX_CH);
     cliPrintf("uart close ch[1~%d]\n", UART_MAX_CH);
   }
