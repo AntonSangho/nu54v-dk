@@ -102,7 +102,8 @@ cd firmware/projects/dfu
 | `fw flash` | MCUboot + 앱 | SWD (프로브) |
 | `fw dfu` | 앱만 | SMP (시리얼 / BLE) |
 
-**버전을 올려야 한다** (`VERSION` 파일). 같은 버전이면 타깃이 거부한다.
+버전은 올리지 않아도 된다 (내려받기 방지가 꺼져 있다). 다만 **완전히 같은 이미지**면
+test 표시가 거부되고, **실행 중 이미지가 확정 전(test)이면** 새 업로드가 막힌다 — 먼저 confirm 한다.
 그 포트를 쓰는 프로그램(baram-term 등)은 먼저 닫는다. 자세한 내용은 [docs/18_dfu.md](docs/18_dfu.md).
 
 > **알려진 문제** — 이 보드의 온보드 프로브는 **VCOM0 를 쓰면 SWD 가 죽는다**.

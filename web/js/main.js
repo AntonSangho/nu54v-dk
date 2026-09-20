@@ -274,3 +274,111 @@ navigator.usb?.addEventListener("disconnect", (e) => {
 
 checkSupport();
 log("준비됨");
+
+
+//-- BLE (SMP) 업데이트
+//
+let bleTransport = null;
+let bleClient = null;
+
+function setBleConnected(on) {
+  $("ble-connect").disabled = on;
+  $("ble-disconnect").disabled = !on;
+  $("ble-upload").disabled = !on || $("binfile").files.length === 0;
+}
+
+async function showBleState() {
+  try {
+    const rsp = await bleClient.imageList();
+    const lines = (rsp.images || []).map((img) => {
+      const flags = [
+        img.active ? "active" : null,
+        img.confirmed ? "confirmed" : null,
+        img.pending ? "pending" : null,
+      ].filter(Boolean).join(",") || "-";
+      return `slot${img.slot} v${img.version} [${flags}]`;
+    });
+    $("ble-state").textContent = lines.join("   ");
+    return rsp.images || [];
+  } catch (e) {
+    $("ble-state").textContent = "";
+    log(`이미지 목록 실패 : ${e.message || e}`, "err");
+    return [];
+  }
+}
+
+async function bleConnect() {
+  if (!navigator.bluetooth) {
+    log("이 브라우저는 Web Bluetooth 를 지원하지 않는다", "err");
+    return;
+  }
+  try {
+    bleTransport = new BleSmpTransport(log);
+    await bleTransport.connect();
+    bleClient = new SmpClient(bleTransport, log);
+    setBleConnected(true);
+    log("BLE 연결됨", "ok");
+    await showBleState();
+  } catch (e) {
+    log(`BLE 연결 실패 : ${e.message || e}`, "err");
+    log("다른 프로그램이 보드에 BLE 로 붙어 있으면 목록에 보이지 않는다");
+    bleTransport = null;
+    bleClient = null;
+    setBleConnected(false);
+  }
+}
+
+async function bleDisconnect() {
+  if (bleTransport) await bleTransport.disconnect();
+  bleTransport = null;
+  bleClient = null;
+  setBleConnected(false);
+  $("ble-state").textContent = "";
+  log("BLE 연결 끊음");
+}
+
+async function bleUpload() {
+  const file = $("binfile").files[0];
+  if (!file || !bleClient) return;
+
+  $("ble-upload").disabled = true;
+  try {
+    const image = new Uint8Array(await file.arrayBuffer());
+    log(`--- ${file.name} (${(image.length / 1024).toFixed(0)} KB) ---`);
+
+    const t0 = performance.now();
+    await bleClient.upload(image, (done, total) => {
+      const pct = Math.floor((done * 100) / total);
+      $("ble-progress").textContent =
+        `업로드 ${pct}%  (${(done / 1024).toFixed(0)} / ${(total / 1024).toFixed(0)} KB)`;
+    });
+    const sec = (performance.now() - t0) / 1000;
+    log(`업로드 완료 : ${sec.toFixed(1)} 초 (${(image.length / 1024 / sec).toFixed(1)} KB/s)`, "ok");
+
+    const images = await showBleState();
+    const target = images.find((i) => i.slot === 1);
+    if (!target) throw new Error("slot1 에 이미지가 없다");
+
+    await bleClient.imageState(target.hash, false);    // test 표시
+    log("test 표시 완료. 리셋한다", "ok");
+    await showBleState();
+
+    try {
+      await bleClient.reset();
+    } catch (e) {
+      // 리셋하면 연결이 끊기므로 응답이 안 올 수 있다
+    }
+    log("리셋했다. 새 펌웨어가 뜨면 다시 연결해 confirm 한다", "ok");
+    await bleDisconnect();
+  } catch (e) {
+    log(`업데이트 실패 : ${e.message || e}`, "err");
+  } finally {
+    $("ble-upload").disabled = false;
+    $("ble-progress").textContent = "";
+  }
+}
+
+$("ble-connect").addEventListener("click", bleConnect);
+$("ble-disconnect").addEventListener("click", bleDisconnect);
+$("binfile").addEventListener("change", () => setBleConnected(bleTransport !== null));
+$("ble-upload").addEventListener("click", bleUpload);

@@ -122,6 +122,23 @@
   </div>
 
   <div class="card">
+    <h2>4. BLE 로 업데이트 (SMP)</h2>
+    <p class="note" style="margin-top:0">
+      케이블 없이 무선으로 앱만 갱신한다 (MCUboot 는 그대로).
+      <code>build/&lt;앱&gt;/zephyr/zephyr.signed.bin</code> 을 고른다 —
+      <b>.hex 가 아니라 .bin</b> 이다. 버전이 올라가 있어야 한다.
+    </p>
+    <div class="row">
+      <button id="ble-connect" class="primary">BLE 연결</button>
+      <button id="ble-disconnect" disabled>연결 끊기</button>
+      <input type="file" id="binfile" accept=".bin">
+      <button id="ble-upload" disabled>업데이트</button>
+    </div>
+    <div id="ble-state" class="note" style="margin-top:10px"></div>
+    <div id="ble-progress" class="note"></div>
+  </div>
+
+  <div class="card">
     <h2>로그</h2>
     <pre id="log"></pre>
   </div>
@@ -131,8 +148,11 @@
        GitHub Pages 로 올라간 것이다. 직접 돌리려면 <code>web/</code> 에서
        <code>python3 -m http.server 8777</code> 후 <code>http://localhost:8777</code>
        (WebUSB 는 HTTPS 또는 localhost 에서만 동작한다).</p>
-    <p><b>되는 브라우저</b> — WebUSB 를 쓰므로 Chrome / Edge / Opera (데스크톱, Android) 에서만 동작한다.
+    <p><b>되는 브라우저</b> — WebUSB(SWD) 와 Web Bluetooth 를 쓰므로
+       Chrome / Edge / Opera (데스크톱, Android) 에서만 동작한다.
        Safari 와 Firefox 는 지원하지 않는다.</p>
+    <p><b>BLE 업데이트</b> — 다른 프로그램(baram-term 등)이 보드에 BLE 로 연결 중이면
+       장치 목록에 보이지 않는다 (연결 중에는 광고를 멈춘다). 먼저 끊는다.</p>
     <p><b>연결이 안 되면</b> — 다른 프로그램(pyOCD, VS Code 디버거, nRF Connect)이 프로브를 쥐고 있으면 실패한다.
        먼저 닫는다. 보드의 <code>SW1 DISABLE_SWD</code> 는 OFF 여야 한다.</p>
     <p><b>주의</b> — 이 보드의 내장 프로브는 VCOM0 를 쓰는 펌웨어가 돌면 SWD 가 죽는다
@@ -145,6 +165,8 @@
 <script src="js/nrf54l.js"></script>
 <script src="js/flash_algo.js"></script>
 <script src="js/flash.js"></script>
+<script src="js/smp.js"></script>
+<script src="js/ble.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
