@@ -40,6 +40,7 @@ void dfuSerialEnable(bool enable);
 bool dfuSerialIsEnable(void);
 void dfuSerialGetCnt(uint32_t *p_rx, uint32_t *p_tx, uint32_t *p_err);
 void dfuSerialGetFragCnt(uint32_t *p_frag, uint32_t *p_drop);
+uint16_t dfuSerialGetDropFrag(uint8_t **pp_buf);
 #endif
 
 

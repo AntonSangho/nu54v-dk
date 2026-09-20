@@ -391,7 +391,10 @@ async function bleUpload() {
   const file = $("binfile").files[0];
   if (!file || !bleClient) return;
 
+  // 업로드 중에는 확정도 막는다. SMP 는 한 번에 한 요청뿐이라
+  // 도중에 다른 명령을 보내면 "앞선 요청이 끝나지 않았다" 로 막힌다.
   $("ble-upload").disabled = true;
+  $("ble-confirm").disabled = true;
   try {
     const image = new Uint8Array(await file.arrayBuffer());
     log(`--- ${file.name} (${(image.length / 1024).toFixed(0)} KB) ---`);
@@ -432,6 +435,7 @@ async function bleUpload() {
     log(`업데이트 실패 : ${e.message || e}`, "err");
   } finally {
     $("ble-upload").disabled = false;
+    $("ble-confirm").disabled = false;
     setProgress("ble-progress", null);
   }
 }
@@ -526,7 +530,10 @@ async function serUpload() {
   const file = $("serbinfile").files[0];
   if (!file || !serClient) return;
 
+  // 업로드 중에는 확정도 막는다. SMP 는 한 번에 한 요청뿐이라
+  // 도중에 다른 명령을 보내면 "앞선 요청이 끝나지 않았다" 로 막힌다.
   $("ser-upload").disabled = true;
+  $("ser-confirm").disabled = true;
   try {
     const image = new Uint8Array(await file.arrayBuffer());
     log(`--- ${file.name} (${(image.length / 1024).toFixed(0)} KB) ---`);
@@ -572,6 +579,7 @@ async function serUpload() {
     log(`업데이트 실패 : ${e.message || e}`, "err");
   } finally {
     $("ser-upload").disabled = false;
+    $("ser-confirm").disabled = false;
     setProgress("ser-progress", null);
   }
 }

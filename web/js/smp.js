@@ -262,6 +262,21 @@ class SmpClient {
     return ` [${bits.join(", ")}]`;
   }
 
+  /*
+   * 기다리던 요청을 버린다.
+   *
+   * 업로드가 중간에 멈추면 pending 이 남아 다음 시도가 통째로 막힌다
+   * ("앞선 요청이 끝나지 않았다"). 새로 시작할 때 여기를 먼저 지운다.
+   */
+  abort() {
+    if (this.pending === null) return;
+
+    const { reject, timer } = this.pending;
+    clearTimeout(timer);
+    this.pending = null;
+    reject(new Error("중단했다"));
+  }
+
   async request(op, group, id, payload = {}, timeoutMs = 10000) {
     if (this.pending) throw new Error("앞선 요청이 끝나지 않았다");
 
@@ -314,6 +329,8 @@ class SmpClient {
    * (이미지 크기로 속도를 내면 이어받은 만큼 빨라 보인다).
    */
   async upload(image, onProgress, chunkSize = 200, retries = 5) {
+    this.abort();                          // 앞서 멈춘 것이 남아 있으면 버린다
+
     const sha = new Uint8Array(await crypto.subtle.digest("SHA-256", image));
     let off = 0;
     let sent = 0;

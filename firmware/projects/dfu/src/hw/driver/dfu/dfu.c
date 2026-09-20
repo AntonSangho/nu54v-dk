@@ -168,6 +168,24 @@ void cliDfu(cli_args_t *args)
       // frag 은 받은 줄 수, drop 은 줄은 다 받았는데 패킷이 안 된 횟수다.
       // drop 이 오르면 그만큼 호스트가 응답 없이 타임아웃을 봤다는 뜻이다.
       cliPrintf("serial.frag   : %d, drop %d\n", frag_cnt, drop_cnt);
+
+      // 마지막으로 버린 줄. 시작줄(06 09)이면 버퍼 할당 실패일 수 있고,
+      // 이어짐(04 14)이면 할당은 성공한 뒤라 base64 / 길이 / CRC 쪽이다.
+      if (drop_cnt > 0)
+      {
+        uint8_t *p_buf;
+        uint16_t len = dfuSerialGetDropFrag(&p_buf);
+
+        cliPrintf("serial.drop   : mark %02X %02X, len %d (base64 %d, %s)\n",
+                  p_buf[0], p_buf[1], len, len - 2,
+                  ((len - 2) % 4) == 0 ? "4의 배수" : "4의 배수 아님");
+        cliPrintf("                ");
+        for (int j = 2; j < len; j++)
+        {
+          cliPrintf("%c", (p_buf[j] >= 32 && p_buf[j] < 127) ? p_buf[j] : '.');
+        }
+        cliPrintf("\n");
+      }
     }
 #endif
     ret = true;

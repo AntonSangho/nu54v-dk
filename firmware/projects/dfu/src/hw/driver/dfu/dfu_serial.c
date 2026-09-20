@@ -24,6 +24,8 @@
 
 #include "dfu.h"
 
+#include <string.h>
+
 
 #ifdef _USE_HW_DFU_SERIAL
 #include "uart.h"
@@ -73,6 +75,15 @@ static uint32_t err_cnt     = 0;
 static uint32_t frag_cnt    = 0;   // 받은 줄 수
 static uint32_t frag_drop   = 0;   // 줄은 다 받았는데 패킷이 안 된 횟수
 
+// 버려진 줄을 그대로 남겨 둔다.
+//
+// mcumgr_serial_process_frag() 는 버퍼 할당 실패 / base64 / 길이 / CRC 를 모두
+// 같은 NULL 로 돌려줘 이유를 구분할 수 없다. 줄 자체를 보면 갈린다.
+//   - 시작줄(0x06 0x09)에서만 버퍼 할당이 일어난다 → 이어짐(0x04 0x14)이면 할당 실패가 아니다
+//   - 길이가 4 의 배수가 아니거나 글자가 깨졌으면 눈으로 보인다
+static uint8_t  drop_buf[DFU_SERIAL_FRAG_MAX];
+static uint16_t drop_len = 0;
+
 
 
 
@@ -119,6 +130,12 @@ void dfuSerialGetFragCnt(uint32_t *p_frag, uint32_t *p_drop)
 {
   if (p_frag != NULL) *p_frag = frag_cnt;
   if (p_drop != NULL) *p_drop = frag_drop;
+}
+
+uint16_t dfuSerialGetDropFrag(uint8_t **pp_buf)
+{
+  if (pp_buf != NULL) *pp_buf = drop_buf;
+  return drop_len;
 }
 
 /*
@@ -185,6 +202,9 @@ bool dfuSerialFeed(uint8_t rx_data)
         // 버린 것이다 (버퍼 할당 실패 / base64 / 길이 / CRC — 전부 조용히 NULL).
         // 이 경우 호스트는 응답을 못 받고 타임아웃을 본다.
         frag_drop++;
+
+        drop_len = frag_len;
+        memcpy(drop_buf, frag_buf, frag_len);
       }
       frag_len = 0;
       is_frame = false;
