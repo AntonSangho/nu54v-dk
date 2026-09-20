@@ -75,6 +75,11 @@
 - [ ] LED 육안 확인, VS Code F5 디버깅 확인
 - [ ] Windows / Linux 에서 빌드·다운로드·디버깅 확인
 - [ ] 소비전류 측정 (J1 + PPK2, SWD 분리) — [11_power.md](11_power.md) §5 표 채우기, DC/DC 판단
+- [ ] **시리얼 DFU 보率 올리기 (선택)** — 지금 249 KB 에 42 초. 1 Mbaud 로 올리면 6 초 예상이다.
+  `cli_baud` 까지 바꾸는 런타임 명령을 먼저 만들어 시험한다 (실패해도 리셋하면 115200 으로 복귀).
+  같이 봐야 할 것 : `UART_RX_TIMEOUT_US`(1000 → 200 µs), `UART_RX_DMA_LEN`(64 → 128/256),
+  그리고 **페이싱 기준 속도** — 지금은 보率로 계산하는데 1 Mbaud 에서는 프로브가 더 느린 고리가
+  될 수 있다 ([18_dfu.md](18_dfu.md) §9 "페이싱의 전제"). 보率이 바뀌면 웹·bench·baram-term 설정이 같이 움직인다
 - [ ] 다음 예제: [roadmap.md](roadmap.md) 순서 (**17 ble_power** → 18 dfu → … → 16 ble_nus → … → 20 epaper(마지막))
 - [ ] e-paper 모델(흑백/흑백적)과 실제 배선 핀 확정
 - [ ] 보드 미확인 항목 ([02_board_package.md](02_board_package.md) §5): DC/DC, HFXO 부하, 솔더 브리지
