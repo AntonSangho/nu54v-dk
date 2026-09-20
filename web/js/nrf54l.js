@@ -12,11 +12,11 @@ const NRF54L = {
   SRAM_START: 0x20000000,
   SRAM_SIZE: 0x00040000,        // 256 KB
 
-  // FICR (읽기 전용 공장 정보)
-  FICR_BASE: 0x00FFC000,
-  FICR_PART: 0x00FFC20C,        // 0x00054B15
-  FICR_DEVICEID0: 0x00FFC204,
-  FICR_DEVICEID1: 0x00FFC208,
+  // FICR (읽기 전용 공장 정보). 주소는 pyOCD 의 target_nRF54L.check_part_info() 기준.
+  FICR_PARTNO: 0x00FFC31C,
+  FICR_VARIANT: 0x00FFC320,
+  FICR_DEVICEADDR0: 0x00FFC3A4,
+  FICR_DEVICEADDR1: 0x00FFC3A8,
 
   // DTS 파티션 (firmware/boards/nucode/nu54v_dk)
   BOOT_PARTITION: 0x00000000,
@@ -35,13 +35,21 @@ function hex32(v) {
 async function readTargetInfo(target) {
   const info = {};
 
-  const part = await target.readMem32(NRF54L.FICR_PART);
-  info.part = hex32(part);
-  info.partName = (part === 0x00054b15) ? "nRF54L15" : "알 수 없음";
+  const partno = await target.readMem32(NRF54L.FICR_PARTNO);
+  const variant = await target.readMem32(NRF54L.FICR_VARIANT);
+  // variant 는 ASCII 4 글자 (예: "AAAA"). 하위 바이트부터 들어 있다.
+  let variantStr = "";
+  for (let i = 3; i >= 0; i--) {
+    const c = (variant >>> (i * 8)) & 0xff;
+    if (c >= 32 && c < 127) variantStr += String.fromCharCode(c);
+  }
+  info.part = hex32(partno);
+  info.partName = `nRF${partno.toString(16).toUpperCase()} ${variantStr}`.trim();
 
-  const id0 = await target.readMem32(NRF54L.FICR_DEVICEID0);
-  const id1 = await target.readMem32(NRF54L.FICR_DEVICEID1);
-  info.deviceId = hex32(id1).slice(2) + hex32(id0).slice(2);
+  // BLE MAC 으로도 쓰이는 장치 주소
+  const a0 = await target.readMem32(NRF54L.FICR_DEVICEADDR0);
+  const a1 = await target.readMem32(NRF54L.FICR_DEVICEADDR1);
+  info.deviceId = hex32(a1).slice(2) + hex32(a0).slice(2);
 
   info.mem = `${NRF54L.RRAM_SIZE / 1024} KB / ${NRF54L.SRAM_SIZE / 1024} KB`;
 

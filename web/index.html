@@ -98,7 +98,22 @@
     <div class="row" style="margin-top:14px">
       <button id="read" disabled>다시 읽기</button>
       <button id="reset" disabled>리셋</button>
+      <button id="recover" disabled>복구</button>
     </div>
+  </div>
+
+  <div class="card">
+    <h2>3. 펌웨어 굽기 (SWD)</h2>
+    <p class="note" style="margin-top:0">
+      MCUboot 와 앱 둘 다 구울 수 있다. 빈 보드도 된다.
+      <code>firmware/projects/&lt;이름&gt;/build/</code> 아래의 <code>.hex</code> 를 고른다
+      (<code>mcuboot/zephyr/zephyr.hex</code>, <code>&lt;앱&gt;/zephyr/zephyr.signed.hex</code>).
+    </p>
+    <div class="row">
+      <input type="file" id="hexfile" accept=".hex" multiple>
+      <button id="program" class="primary" disabled>굽기</button>
+    </div>
+    <div id="progress" class="note" style="margin-top:10px"></div>
   </div>
 
   <div class="card">
@@ -119,6 +134,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/dapjs@2.3.0/dist/dap.umd.js"></script>
 <script src="js/nrf54l.js"></script>
+<script src="js/flash_algo.js"></script>
+<script src="js/flash.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
