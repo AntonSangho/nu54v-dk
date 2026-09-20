@@ -63,6 +63,7 @@ NUCODE NU54-DK (nRF54L15) 보드 브링업 펌웨어.
 | 15 | `rtc` | 날짜·시계, 로그 타임스탬프 |
 | 16 | `ble_nus` | BLE NUS — cli 를 BLE 로 |
 | 18 | `dfu` | MCUboot 펌웨어 업데이트 (BLE / 시리얼) — [문서](docs/18_dfu.md) |
+| 19 | `web_dfu` | 브라우저에서 굽기 — SWD(WebUSB) / BLE / 시리얼 — [문서](docs/19_web_dfu.md) |
 
 앞으로의 계획: [docs/roadmap.md](docs/roadmap.md)
 
