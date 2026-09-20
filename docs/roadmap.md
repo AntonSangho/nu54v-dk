@@ -39,7 +39,7 @@
 | 15 | `rtc` | 날짜·시계 (기준 epoch + GRTC, 보존 RAM), 시간대(nvs), log 타임스탬프, `rtc` CLI | GRTC, 보존 RAM 4 KB | rtc (NU87 API) | 틱 없음, System OFF 에서도 시각 유지 | ✅ |
 | 16 | `ble_nus` | BLE 스택/역할/서비스 3층, NUS 를 uart 가상 채널로 → cli 가 BLE 에서 동작 | RADIO | uart(`uartSetDriver`), cli_mgr (NU87) | 수신 콜백 → 알림, 광고/연결 간격은 17 | ✅ |
 | 17 | `ble_power` | BLE 저전력 튜닝: 광고 주기, 연결 파라미터, 슬레이브 레이턴시 | RADIO | | 광고/연결 상태별 평균 전류 표 | |
-| 18 | `dfu` | MCUboot + SMP 로 펌웨어 업데이트 (UART / BLE) | slot0/slot1 파티션 | loader, ymodem | 부트로더 크기와 부팅 시간 | |
+| 18 | `dfu` | MCUboot + SMP 로 펌웨어 업데이트 (UART / BLE). 도구는 mcumgr·nRF Connect (baram-term 은 NUS 만 씀) | slot0/slot1 파티션 | loader, ymodem, nrf54l15-bd `nrf54l-fw-fota` | 부트로더 크기와 부팅 시간 | |
 | 19 | `app` | 위 모듈을 합친 기본 펌웨어 (cli + ble_nus + 센서 + 전원 관리) | 전체 | ap/system | 동작 모드별 전류 | |
 | 20 | `epaper` | **WeAct 4.2" e-paper (SSD1683, 400×300)** (마지막 단계, app 에 화면 추가) : SPI, 화면 버퍼, 글자/도형, 전체/부분 갱신 | SPI00 + GPIO (P2 헤더, §3) | spi, lcd (+ lcd/ssd1306 구조) | 갱신 후 deep sleep, 부분 갱신, 필요 시 VCC 차단 | |
 
@@ -107,7 +107,16 @@ VCOM1 (uart20) ─────────────────────�
 - 오래 쓰지 않을 때는 모듈 VCC 를 끊는다 (모듈 LDO 대기 전류까지 제거, 하드웨어 추가 필요)
 - SPI 는 PM runtime 으로 전송할 때만 켠다
 
-## 4. ap 모듈 구조 (10단계) 계획
+## 4. dfu (18단계) 메모 — baram-term 쪽 요청
+
+- baram-term 은 **NUS 만** 쓴다. SMP/MCUmgr 는 구현하지 않는다 → DFU 는 mcumgr / nRF Connect 로 하고, baram-term 은 그 전후로 CLI 를 쓰는 창이다.
+- DFU 중에는 NUS 연결이 끊긴다. baram-term 의 **자동 재연결(1초 간격)** 이 계속 붙으려 하므로,
+  사용자가 창에서 연결을 끊거나 자동화라면 `baram-ctl release` → 끝나고 `resume` 을 쓴다. 이 절차를 dfu 문서에 적는다.
+- **DFU 모드에서도 광고 이름을 바꾸지 않는다.** baram-term 은 이름으로 장치를 기억한다 (`ble://NU54V-DK#5fdf6eb4`).
+  바꿔야 할 일이 생기면 baram-term 쪽에 먼저 알린다.
+- 업데이트 뒤 버전 확인은 CLI `info` 로 한다 (16 예제부터 있음).
+
+## 5. ap 모듈 구조 (10단계) 계획
 
 지금은 `apMain()` 에서 `cliMain()` 을 직접 돈다. 기능이 늘면 레퍼런스의 ap 모듈 구조로 옮긴다.
 
@@ -128,7 +137,7 @@ ap/
 
 저전력: 모든 모듈 스레드가 이벤트를 기다리는 동안 idle 스레드가 WFI 로 들어간다. 주기 작업은 `k_timer`/`k_work_delayable` 로.
 
-## 5. rtc 날짜·시계 (15단계) 계획
+## 6. rtc 날짜·시계 (15단계) 계획
 
 API 는 NU87 `rtc.h` 를 그대로 쓴다.
 
@@ -157,7 +166,7 @@ epoch = base_epoch + (GRTC 카운터 - base_count) / 1 000 000
 | 정확도 | LFXO(외부 크리스털 Y1) 오차 ±20 ppm 수준 → 하루 약 ±2 초. 장기간이면 주기 동기화 |
 | log 타임스탬프 | log.c 의 `logBufHeader()` 에서 줄 머리에 날짜·시각을 넣는다 (로그가 생긴 순간의 시각). 시각이 설정되지 않았으면 부팅 후 경과 시간 |
 
-## 6. 단계 공통 체크리스트
+## 7. 단계 공통 체크리스트
 
 - [ ] 레퍼런스 모듈 확인 (구조는 NU87 → nu54dk, nRF54L15 Zephyr 사용법은 nrf54l15-bd 도 확인) → 구조 유지하며 이식
 - [ ] 모듈에 CLI 명령 추가 (`#if CLI_USE(HW_xxx)`), cli 로 먼저 시험

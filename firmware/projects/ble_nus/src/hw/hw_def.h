@@ -84,6 +84,7 @@
 
 //-- CLI
 //
+#define _USE_CLI_HW_INFO            1       // info : 펌웨어 이름·버전·빌드 시각
 #define _USE_CLI_HW_UART            1
 #define _USE_CLI_HW_LOG             1
 #define _USE_CLI_HW_RESET           1

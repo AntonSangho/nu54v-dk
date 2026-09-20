@@ -59,7 +59,12 @@ Zephyr 커널 메시지(부팅 배너, fault)는 여전히 `printk` → UART 콘
 | 끄기 | `logDisable()` : UART 로 내보내지 않고 버퍼에만 남긴다 (송신할 때만 UARTE 가 켜지므로 전류 절약) |
 | 버퍼 | RAM 6 KB 사용 (256 KB 중). 전원과는 무관 |
 
-## 5. 검증 결과 (2026-09-20, NCS v3.4.1, macOS)
+## 5. 참고 — `info` 명령
+
+`info` 는 펌웨어 이름·버전·빌드 시각·보드·가동 시간·리셋 원인·현재 시각·BLE 상태를 한 번에 보여 준다.
+자동 시험에서 업데이트 뒤 버전을 확인할 때 쓴다 (`send "info" --until 'cli# $'`). 16 ble_nus 예제부터 들어 있다.
+
+## 6. 검증 결과 (2026-09-20, NCS v3.4.1, macOS)
 
 - [x] 빌드: FLASH 60 KB / RAM 20.2 KB
 - [x] 부팅 메시지 출력, `log info` / `log boot` / `log list` (baram-term)
