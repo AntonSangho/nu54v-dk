@@ -65,6 +65,17 @@ function latin1(bytes) {
   return s.replace(/\r/g, "");
 }
 
+/* latin1() 로 만든 줄을 사람이 읽을 글자로 되돌린다.
+ *
+ * 프레임을 가려내려면 바이트 단위로 봐야 해서 수신 줄은 바이트 하나당 글자
+ * 하나로 만든다. 그런데 보드 cli 출력은 UTF-8 한글이라, 그대로 보여 주면
+ * "(평균/최대)" 가 "(íê· /ìµë)" 로 깨진다. 텍스트로 넘길 때만 다시 푼다. */
+function fromLatin1(str) {
+  const bytes = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i) & 0xff;
+  return new TextDecoder().decode(bytes);
+}
+
 function fromBase64(str) {
   const bin = atob(str);
   const out = new Uint8Array(bin.length);
@@ -199,12 +210,12 @@ class SerialSmpTransport {
 
     if (at < 0) {
       // cli 출력이다. 듣는 쪽이 있으면 넘긴다 (보드 상태를 물어볼 때 쓴다).
-      if (this.onText) this.onText(line);
+      if (this.onText) this.onText(fromLatin1(line));
       return;
     }
     if (at > 0) {
       this.cnt.markInline++;                  // 앞에 cli 출력이 붙어 있었다
-      if (this.onText) this.onText(line.slice(0, at));
+      if (this.onText) this.onText(fromLatin1(line.slice(0, at)));
     }
 
     const rest = line.slice(at + 2);

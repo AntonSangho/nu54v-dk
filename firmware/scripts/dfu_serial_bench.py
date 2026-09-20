@@ -213,11 +213,13 @@ class SmpSerial:
                 at, is_pkt = i_frag, False
             else:
                 if line:
-                    self.text.append(line.decode("latin1"))
+                    # 프레임은 바이트로 보지만 cli 출력은 UTF-8 한글이다.
+                    # latin1 로 읽으면 "(평균/최대)" 가 깨져 나온다.
+                    self.text.append(line.decode("utf-8", "replace"))
                 continue
 
             if at > 0:
-                self.text.append(line[:at].decode("latin1"))
+                self.text.append(line[:at].decode("utf-8", "replace"))
 
             rest = line[at + 2:].decode("latin1")
             if is_pkt:
