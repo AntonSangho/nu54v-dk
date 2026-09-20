@@ -246,9 +246,32 @@ firmware/projects/dfu/VERSION    VERSION_MAJOR/MINOR/PATCHLEVEL/VERSION_TWEAK
 | 앱 FLASH | 231,164 B | 249,336 B | +18 KB |
 | 앱 RAM | 53,368 B | 65,888 B | +12 KB |
 
-### 남은 확인
+### 검증 결과 (2026-09-20)
 
-업로드 → test → 리셋 → confirm 흐름을 시리얼(VCOM0)과 BLE 양쪽에서 확인한다.
+| 항목 | 결과 |
+|---|---|
+| 부팅, `version : 1.0.1+0` | ✅ VERSION 파일 단일 출처 확인 |
+| 시리얼 SMP (VCOM0) `image list` | ✅ |
+| BLE SMP `image list` | ✅ (MTU 247) |
+| **BLE 업로드 → test → 리셋 → swap → confirm** | ✅ 249 KB / **15.8 초 / 15.4 KB/s** |
+| 되돌리기 안전장치 | ✅ swap 직후 `confirmed=False`, 이전 버전이 slot1 에 남음 |
+
+```
+업로드 후 : slot0 v1.0.1 active,confirmed   slot1 v1.0.2
+test 표시 : slot0 v1.0.1 active             slot1 v1.0.2 pending
+리셋 swap : slot0 v1.0.2 active             slot1 v1.0.1 confirmed   ← 아직 확정 아님
+confirm   : slot0 v1.0.2 active,confirmed   slot1 v1.0.1
+```
+
+시리얼 업로드는 9 KB 근처에서 끊긴다. 내장 프로브(DAPLink)의 CDC 를 통과하는데 그 펌웨어가
+불안정하다 ([03_build_debug_env](03_build_debug_env.md) 참고). 외부 USB-UART 로 VCOM0 에
+직접 붙여 다시 시험한다.
+
+호스트 도구는 python `smpclient` 를 썼다.
+
+```sh
+pip install "smpclient[ble,serial]"
+```
 
 **3단계 — `dfu` 모듈**
 
