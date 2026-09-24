@@ -19,6 +19,8 @@ NUCODE NU54-DK (nRF54L15) 보드 브링업 펌웨어.
 | 시리얼 | VCOM1 = cli / 로그 / 시리얼 DFU, VCOM0 = 두 번째 채널 (115200 8N1) |
 | 펌웨어 업데이트 | MCUboot + SMP — BLE 또는 cli 포트 (`fw dfu`, VS Code 태스크) |
 
+**확인된 PC**: Ubuntu 22.04 + J-Link EDU + NU-54DK — 세부 내용은 [03_build_debug_env.md](docs/03_build_debug_env.md#linux-실측-2026-09-25-ubuntu-antonsangho-pc)
+
 ## 사용 도구
 
 | 도구 | 용도 |

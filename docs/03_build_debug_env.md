@@ -47,6 +47,31 @@ nu54v-dk/
 전역 PATH 설정이나 nRF Connect 터미널은 필요 없다. `fw` 스크립트가 `ncs_config.json` 의 버전에 맞는 툴체인을 찾아
 `environment.json` 으로 환경을 구성한 뒤 west / pyocd 를 실행한다.
 
+### Linux 실측 (2026-09-25, Ubuntu, AntonSangho PC)
+
+- **SDK 설치**: nRF Connect for Desktop(GUI) 대신 `nrfutil` CLI 로 받았다.
+  기본 `~/ncs` 에 `toolchains/<hash>/nrfutil/bin/nrfutil` 이 이미 있으면 그걸 쓴다.
+  ```sh
+  NRFUTIL=~/ncs/toolchains/<hash>/nrfutil/bin/nrfutil
+  $NRFUTIL install toolchain-manager     # 한 번만
+  $NRFUTIL install sdk-manager           # 한 번만
+  $NRFUTIL sdk-manager install v3.4.1 --install-dir ~/ncs   # 툴체인(컴파일러) + SDK 소스 둘 다 받음
+  ```
+  버전마다 SDK ~4.6 GB + 툴체인 ~4.3 GB. 여러 버전을 같이 두면 금방 커지므로 안 쓰는 버전은
+  `$NRFUTIL sdk-manager uninstall <version>` 으로 지운다.
+- **`fw` 스크립트의 python3 가 죽는 문제** (`error while loading shared libraries: libpython3.12.so.1.0`):
+  툴체인 python3(`usr/local/bin/python3`)는 자체 `libpython*.so` 를 쓰는데, `fw` 가 이 python3 를
+  띄우기 *전에* `LD_LIBRARY_PATH` 를 설정해주지 않아서 `fw.py` 실행 전에 즉시 죽는다.
+  `firmware/scripts/fw` 가 python3 경로를 찾은 직후 해당 툴체인의 `lib`/`lib/x86_64-linux-gnu`/
+  `usr/local/lib` 를 `LD_LIBRARY_PATH` 에 넣도록 고쳤다 (`f320ee3`). 이 저장소를 받으면 자동 적용된다.
+- **udev 규칙 실측**: `/dev/bus/usb/.../...` 노드 권한이 규칙 적용 전엔 `root:root rw-rw-r--` 라
+  일반 사용자가 못 열어 `pyocd list` 에 보드가 안 뜬다 (VCOM `/dev/ttyACM*` 는 이미 `666` 이라 무관).
+  규칙 적용 + USB 재연결 후 `pyocd list` 에 `NU54DK_v2_Pre-release` 로 뜬다.
+- **SEGGER J-Link 를 동시에 연결해둔 경우**: pyOCD 가 두 프로브를 다 보고한다. `fw flash` 는 첫 프로브를
+  쓰므로, 온보드 프로브를 확실히 쓰려면 `pyocd list` 로 UID 를 확인한 뒤
+  `fw flash --probe <UID>` (또는 `FW_PROBE=<UID>`) 로 지정한다. 동시 SWD 연결 자체는 위 §8 (내장 프로브 결함)
+  경고대로 피한다.
+
 ## 3. 명령 (터미널)
 
 프로젝트 폴더에서 실행한다.
