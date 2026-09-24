@@ -45,6 +45,17 @@
 
 ## 진행 상황
 
+원 저장소(https://github.com/chcbaram/nu54v-dk, Hancheol Cho)를 이어받아 **2026-09-25 부터 AntonSangho 가 작업**한다.
+그 이전 항목은 원저자의 브링업 기록이라 그대로 둔다.
+
+### AntonSangho (2026-09-25 ~)
+
+| 날짜 | 내용 |
+|---|---|
+| 2026-09-25 | **Linux 빌드·다운로드 확인** (Ubuntu). `firmware/scripts/fw` 버그 수정: 툴체인 python3(`usr/local/bin/python3`)가 자체 `libpython3.12.so.1.0` 을 못 찾아 즉시 죽었다 — `fw.py` 를 실행하기도 전에 나는 에러라 SDK 문제로 오인하기 쉽다. `fw` 스크립트가 python3 실행 전에 툴체인의 `lib`/`lib/x86_64-linux-gnu`/`usr/local/lib` 를 `LD_LIBRARY_PATH` 에 넣도록 고쳤다. NCS v3.4.1 을 `nrfutil toolchain-manager`/`sdk-manager` 로 설치(`~/ncs/v3.4.1`), `projects/led` 를 `fw build -p` 로 빌드하고 `fw flash --probe <UID>` 로 다운로드까지 확인. 온보드 CMSIS-DAP(`NU54DK_v2_Pre-release`) 은 `/etc/udev/rules.d/50-nu54dk.rules` (`idVendor 0d28`, `idProduct 0204`, `MODE 0666`) 없이는 `/dev/bus/usb/...` 가 `root:root 664` 라 pyOCD 가 못 본다 — 규칙 추가 후 `pyocd list` 로 확인됨. VCOM(`/dev/ttyACM*`) 은 기본이 이미 666 이라 별도 규칙 불필요. SEGGER J-Link 를 동시에 물리면 pyOCD 가 두 프로브를 다 보므로 `fw flash --probe <UID>` 로 온보드 프로브를 명시해야 한다 (동시 SWD 연결은 §"내장 프로브" 경고대로 피할 것) |
+
+### Hancheol Cho (원저자, ~ 2026-09-21)
+
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-21 | **웹 도구 정리** : 조각 크기를 전송 계층이 정하게 했다 (BLE 160 / 시리얼 512). 한 값으로 묶었다가 BLE 를 망가뜨렸다 — 첫 요청만 `len`·`sha` 로 75 B 커져 MTU(241)를 넘었고, 증상은 오류 없이 "응답이 오지 않는다" 였다. 안전장치도 512(브라우저 한계)로 둬서 못 잡았다 → 실제 한계 241 로 고침. **보드 없이 도는 회귀 시험 `web/selftest.js` 추가** (회귀를 실제로 잡는지까지 검사). 진단 로그는 [자세히] 뒤로, js 에 캐시 버스터(`?v=`) |
@@ -75,7 +86,8 @@
 - [ ] `NRF_PLATFORM_LUMOS` deprecated 경고: SDK(zephyr/soc/nordic/Kconfig)가 nRF54L 에 기본 y 로 켜는 호환 심볼. SDK 안에서 쓰는 곳 없음.
   다음 릴리스에서 삭제 예정이라 보드에서 끄지 않고 둔다 (끄면 삭제된 버전에서 오히려 에러).
 - [ ] LED 육안 확인, VS Code F5 디버깅 확인
-- [ ] Windows / Linux 에서 빌드·다운로드·디버깅 확인
+- [x] Linux 에서 빌드·다운로드 확인 (2026-09-25, 위 진행 상황 참조). GDB 디버깅(F5)은 아직
+- [ ] Windows 에서 빌드·다운로드·디버깅 확인
 - [ ] 소비전류 측정 (J1 + PPK2, SWD 분리) — [11_power.md](11_power.md) §5 표 채우기, DC/DC 판단
 - [ ] **시리얼 DFU — 브라우저에서 페이싱이 듣지 않는 이유 (선택, 영향 작음)** :
   파이썬은 페이싱으로 손상이 0 이 되는데(17,543 프레임) 웹은 그대로다(약 7,000 프레임에 2 회).

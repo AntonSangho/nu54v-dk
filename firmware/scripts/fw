@@ -15,6 +15,15 @@ PY=""
 for c in "$NCS_ROOT"/toolchains/*/bin/python3 "$NCS_ROOT"/toolchains/*/usr/local/bin/python3; do
   if [ -x "$c" ]; then PY="$c"; break; fi
 done
+if [ -n "$PY" ]; then
+  # 툴체인 파이썬은 자체 libpython*.so 를 쓴다 (시스템 python3 는 이 경로가 필요 없다).
+  TC_ROOT="${PY%/usr/local/bin/python3}"
+  [ "$TC_ROOT" = "$PY" ] && TC_ROOT="${PY%/bin/python3}"
+  for d in "$TC_ROOT/lib" "$TC_ROOT/lib/x86_64-linux-gnu" "$TC_ROOT/usr/local/lib"; do
+    [ -d "$d" ] && LD_LIBRARY_PATH="$d${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+  done
+  export LD_LIBRARY_PATH
+fi
 [ -z "$PY" ] && PY="$(command -v python3 || true)"
 if [ -z "$PY" ]; then
   echo "[fw] ERROR: python3 를 찾을 수 없음 (NCS_ROOT=$NCS_ROOT)" >&2
